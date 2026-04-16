@@ -8,14 +8,14 @@ export default function ClientesPage() {
   const [clientes, setClientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
-  const [limite, setLimite] = useState(100);
-  
+
   // Advanced Filters
   const [statusFiltro, setStatusFiltro] = useState('');
   const [ufFiltro, setUfFiltro] = useState('');
   const [diasFiltro, setDiasFiltro] = useState('');
+  const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'} | null>(null);
 
-  const [cliente360, setCliente360] = useState<{codigo: string, loja: string} | null>(null);
+  const [cliente360, setCliente360] = useState<{ codigo: string, loja: string } | null>(null);
 
   useEffect(() => {
     async function carregar() {
@@ -32,21 +32,24 @@ export default function ClientesPage() {
     carregar();
   }, []);
 
+  const isBuscandoCurto = busca.length > 0 && busca.length < 4;
+
   const filtrados = useMemo(() => {
     if (!clientes) return [];
-    
+    if (isBuscandoCurto) return []; // Retorna vazio enquanto digita a string curta
+
     // Performance: calcula o .toLowerCase() uma vez só
     const term = busca.toLowerCase();
-    
+
     return clientes.filter(c => {
       // Evita erro se c.CODIGO_CLIENTE vier como numérico do banco
       const strNome = c.NOME_CLIENTE ? String(c.NOME_CLIENTE).toLowerCase() : '';
       const strCod = c.CODIGO_CLIENTE ? String(c.CODIGO_CLIENTE).toLowerCase() : '';
-      
-      const passaBusca = strNome.includes(term) || strCod.includes(term);
+
+      const passaBusca = term ? (strNome.includes(term) || strCod.includes(term)) : true;
       const passaStatus = statusFiltro ? c.STATUS_BASE === statusFiltro : true;
       const passaUf = ufFiltro ? c.UF === ufFiltro : true;
-      
+
       let passaDias = true;
       if (diasFiltro === '30') passaDias = c.DIAS_SEM_COMPRA && c.DIAS_SEM_COMPRA > 30;
       if (diasFiltro === '90') passaDias = c.DIAS_SEM_COMPRA && c.DIAS_SEM_COMPRA > 90;
@@ -54,19 +57,40 @@ export default function ClientesPage() {
 
       return passaBusca && passaStatus && passaUf && passaDias;
     });
-  }, [clientes, busca, statusFiltro, ufFiltro, diasFiltro]);
+  }, [clientes, busca, statusFiltro, ufFiltro, diasFiltro, isBuscandoCurto]);
 
-  // Reseta o limite para 100 sempre que o usuário digitar nova busca
-  useEffect(() => {
-    setLimite(100);
-  }, [busca, statusFiltro, ufFiltro, diasFiltro]);
+  const filtradosOrdenados = useMemo(() => {
+    let result = [...filtrados];
+    if (sortConfig) {
+      result.sort((a, b) => {
+        let valA = a[sortConfig.key];
+        let valB = b[sortConfig.key];
+        if (typeof valA === 'string' && typeof valB === 'string') {
+          return sortConfig.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return result;
+  }, [filtrados, sortConfig]);
+
+  const handleSort = (key: string) => {
+    setSortConfig(current => {
+      if (current && current.key === key) {
+        return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
 
   const ufs = Array.from(new Set(clientes.map(c => c.UF).filter(Boolean))).sort();
 
   return (
     <div className="flex-1 p-8 overflow-y-auto">
       <div className="max-w-7xl mx-auto space-y-6">
-        
+
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500 mb-2">Base de Clientes</h1>
@@ -78,16 +102,16 @@ export default function ClientesPage() {
         <div className="glass-panel p-4 flex flex-wrap gap-4 items-center border border-white/5 bg-black/20">
           <div className="relative flex-1 min-w-[250px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-            <input 
-              type="text" 
-              placeholder="Buscar por Nome ou Código..." 
+            <input
+              type="text"
+              placeholder="Buscar por Nome ou Código..."
               value={busca}
               onChange={e => setBusca(e.target.value)}
               className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-sky-500/50 transition-colors"
             />
           </div>
 
-          <select 
+          <select
             className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-gray-300 focus:border-sky-500/50 transition-colors"
             value={statusFiltro} onChange={e => setStatusFiltro(e.target.value)}
           >
@@ -97,7 +121,7 @@ export default function ClientesPage() {
             <option value="INATIVO">Apenas INATIVO</option>
           </select>
 
-          <select 
+          <select
             className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-gray-300 focus:border-sky-500/50 transition-colors"
             value={ufFiltro} onChange={e => setUfFiltro(e.target.value)}
           >
@@ -105,7 +129,7 @@ export default function ClientesPage() {
             {ufs.map(uf => <option key={uf as string} value={uf as string}>{uf as string}</option>)}
           </select>
 
-          <select 
+          <select
             className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-gray-300 focus:border-sky-500/50 transition-colors"
             value={diasFiltro} onChange={e => setDiasFiltro(e.target.value)}
           >
@@ -114,17 +138,17 @@ export default function ClientesPage() {
             <option value="90">Risco (&gt; 90 dias)</option>
             <option value="120">Evasão (&gt; 120 dias)</option>
           </select>
-          
-          {(busca || statusFiltro || ufFiltro || diasFiltro) && (
-            <button 
-              onClick={() => { setBusca(''); setStatusFiltro(''); setUfFiltro(''); setDiasFiltro(''); }}
+
+          {(busca || statusFiltro || ufFiltro || diasFiltro || sortConfig) && (
+            <button
+              onClick={() => { setBusca(''); setStatusFiltro(''); setUfFiltro(''); setDiasFiltro(''); setSortConfig(null); }}
               className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
             >
               <X size={14} /> Limpar
             </button>
           )}
         </div>
-        </div>
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
@@ -136,18 +160,25 @@ export default function ClientesPage() {
             <table className="w-full text-left text-sm text-gray-300">
               <thead className="text-xs uppercase bg-white/[0.03] text-gray-400">
                 <tr>
-                  <th className="px-6 py-4 font-semibold border-b border-white/5">Cliente</th>
-                  <th className="px-6 py-4 font-semibold border-b border-white/5">Localização</th>
-                  <th className="px-6 py-4 font-semibold border-b border-white/5">Contato</th>
-                  <th className="px-6 py-4 font-semibold border-b border-white/5">Dias sem Comprar</th>
-                  <th className="px-6 py-4 font-semibold border-b border-white/5">Status</th>
+                  <th className="px-6 py-4 font-semibold border-b border-white/5 cursor-pointer hover:bg-white/5" onClick={() => handleSort('NOME_CLIENTE')}>Cliente ↕</th>
+                  <th className="px-6 py-4 font-semibold border-b border-white/5 cursor-pointer hover:bg-white/5" onClick={() => handleSort('CIDADE')}>Localização ↕</th>
+                  <th className="px-6 py-4 font-semibold border-b border-white/5 cursor-pointer hover:bg-white/5" onClick={() => handleSort('TELEFONE')}>Contato ↕</th>
+                  <th className="px-6 py-4 font-semibold border-b border-white/5 cursor-pointer hover:bg-white/5" onClick={() => handleSort('DIAS_SEM_COMPRA')}>Dias sem Comprar ↕</th>
+                  <th className="px-6 py-4 font-semibold border-b border-white/5 cursor-pointer hover:bg-white/5" onClick={() => handleSort('STATUS_BASE')}>Status ↕</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {filtrados.slice(0, limite).map((c) => (
-                  <tr 
-                    key={c.id} 
-                    onClick={() => setCliente360({codigo: c.CODIGO_CLIENTE, loja: c.LOJA_CLIENTE})}
+                {isBuscandoCurto && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-sky-400 font-mono text-sm blink">
+                      Digite pelo menos 4 caracteres para iniciar a busca...
+                    </td>
+                  </tr>
+                )}
+                {!isBuscandoCurto && filtradosOrdenados.map((c) => (
+                  <tr
+                    key={c.id}
+                    onClick={() => setCliente360({ codigo: c.CODIGO_CLIENTE, loja: c.LOJA_CLIENTE })}
                     className="hover:bg-white/[0.02] transition-colors cursor-pointer group"
                   >
                     <td className="px-6 py-4">
@@ -180,19 +211,7 @@ export default function ClientesPage() {
                     </td>
                   </tr>
                 ))}
-                {filtrados.length > limite && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center">
-                      <button 
-                        onClick={() => setLimite(prev => prev + 100)}
-                        className="text-xs font-bold font-mono tracking-widest text-sky-400 hover:text-white transition-colors bg-sky-900/30 px-6 py-2 rounded-full border border-sky-500/30"
-                      >
-                        Carregar mais +{filtrados.length - limite > 100 ? 100 : filtrados.length - limite}
-                      </button>
-                    </td>
-                  </tr>
-                )}
-                {filtrados.length === 0 && (
+                {!isBuscandoCurto && filtradosOrdenados.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                       Nenhum cliente encontrado.
@@ -207,10 +226,10 @@ export default function ClientesPage() {
 
       {/* MODAL 360 GRAUS */}
       {cliente360 && (
-        <Cliente360Modal 
-          codigoCliente={cliente360.codigo} 
-          lojaCliente={cliente360.loja} 
-          onClose={() => setCliente360(null)} 
+        <Cliente360Modal
+          codigoCliente={cliente360.codigo}
+          lojaCliente={cliente360.loja}
+          onClose={() => setCliente360(null)}
         />
       )}
     </div>
