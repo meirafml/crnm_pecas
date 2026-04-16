@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Search, Calendar, X } from 'lucide-react';
 
+import { useData } from '@/contexts/DataContext';
+
 export default function OrcamentosPage() {
-  const [orcamentos, setOrcamentos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { orcamentos, loading } = useData();
   const [busca, setBusca] = useState('');
   
   // Advanced Filters
@@ -13,21 +14,6 @@ export default function OrcamentosPage() {
   const [ordemFiltro, setOrdemFiltro] = useState(''); // 'maior' | 'menor' | ''
   const [statusFiltro, setStatusFiltro] = useState('');
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'} | null>(null);
-
-  useEffect(() => {
-    async function carregar() {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/dados?tabela=crm_orcamentos');
-        const json = await res.json();
-        setOrcamentos(Array.isArray(json) ? json : []);
-      } catch (err) {
-        console.error(err);
-      }
-      setLoading(false);
-    }
-    carregar();
-  }, []);
 
   let filtrados = orcamentos.filter(o => {
     const term = busca.toLowerCase();

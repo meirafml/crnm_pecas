@@ -5,25 +5,11 @@ import { Loader2, ShieldCheck, AlertTriangle, Flame, Skull, MapPin } from 'lucid
 import Link from 'next/link';
 import Cliente360Modal from '@/components/Cliente360Modal';
 
-export default function PipelineCarteira() {
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [cliente360, setCliente360] = useState<{codigo: string, loja: string} | null>(null);
+import { useData } from '@/contexts/DataContext';
 
-  useEffect(() => {
-    async function carregar() {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/dados?tabela=clientes');
-        const data = await res.json();
-        if (Array.isArray(data)) setClientes(data);
-      } catch (e) {
-        console.error(e);
-      }
-      setLoading(false);
-    }
-    carregar();
-  }, []);
+export default function PipelineCarteira() {
+  const { clientes, loading } = useData();
+  const [cliente360, setCliente360] = useState<{codigo: string, loja: string} | null>(null);
 
   // Lógica de Categorização Automática (Prevenção de Evasão)
   const colunas = {

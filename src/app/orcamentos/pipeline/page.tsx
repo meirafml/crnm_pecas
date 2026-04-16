@@ -4,24 +4,10 @@ import { useEffect, useState } from 'react';
 import { Loader2, Flame, Clock, Snowflake, AlertOctagon, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 
-export default function PipelineOrcamentos() {
-  const [orcamentos, setOrcamentos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+import { useData } from '@/contexts/DataContext';
 
-  useEffect(() => {
-    async function carregar() {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/dados?tabela=orcamentos');
-        const data = await res.json();
-        if (Array.isArray(data)) setOrcamentos(data);
-      } catch (e) {
-        console.error(e);
-      }
-      setLoading(false);
-    }
-    carregar();
-  }, []);
+export default function PipelineOrcamentos() {
+  const { orcamentos, loading } = useData();
 
   // Lógica de Categorização Automática
   const hoje = new Date();

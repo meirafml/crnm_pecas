@@ -4,9 +4,10 @@ import { useEffect, useState, useMemo } from 'react';
 import { Loader2, MapPin, Search, Tag, X } from 'lucide-react';
 import Cliente360Modal from '@/components/Cliente360Modal';
 
+import { useData } from '@/contexts/DataContext';
+
 export default function ClientesPage() {
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { clientes, loading } = useData();
   const [busca, setBusca] = useState('');
 
   // Advanced Filters
@@ -16,21 +17,6 @@ export default function ClientesPage() {
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'} | null>(null);
 
   const [cliente360, setCliente360] = useState<{ codigo: string, loja: string } | null>(null);
-
-  useEffect(() => {
-    async function carregar() {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/dados?tabela=crm_clientes');
-        const json = await res.json();
-        setClientes(Array.isArray(json) ? json : []);
-      } catch (err) {
-        console.error(err);
-      }
-      setLoading(false);
-    }
-    carregar();
-  }, []);
 
   const isBuscandoCurto = busca.length > 0 && busca.length < 4;
 

@@ -3,30 +3,16 @@
 import { useEffect, useState } from 'react';
 import { Loader2, Search, MapPin, X } from 'lucide-react';
 
+import { useData } from '@/contexts/DataContext';
+
 export default function MaquinasPage() {
-  const [maquinas, setMaquinas] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { maquinas, loading } = useData();
   const [busca, setBusca] = useState('');
   
   // Advanced Filters
   const [categoriaFiltro, setCategoriaFiltro] = useState('');
   const [fabricanteFiltro, setFabricanteFiltro] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState('');
-
-  useEffect(() => {
-    async function carregar() {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/dados?tabela=crm_parquemaquinas');
-        const json = await res.json();
-        setMaquinas(Array.isArray(json) ? json : []);
-      } catch (err) {
-        console.error(err);
-      }
-      setLoading(false);
-    }
-    carregar();
-  }, []);
 
   const filtrados = maquinas.filter(m => {
     const term = busca.toLowerCase();

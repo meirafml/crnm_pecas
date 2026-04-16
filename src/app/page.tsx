@@ -6,46 +6,12 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, A
 import Link from 'next/link';
 import Cliente360Modal from '@/components/Cliente360Modal';
 
+import { useData } from '@/contexts/DataContext';
+
 export default function Dashboard() {
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [orcamentos, setOrcamentos] = useState<any[]>([]);
-  const [maquinas, setMaquinas] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { clientes, orcamentos, maquinas, loading, ultimaSync } = useData();
   const [vendedorSelecionado, setVendedorSelecionado] = useState<any>(null);
-  const [vendedorSelecionado, setVendedorSelecionado] = useState<any>(null);
-  const [ultimaSync, setUltimaSync] = useState<string>('');
   const [clienteModal, setClienteModal] = useState<{codigo: string, loja: string} | null>(null);
-
-  useEffect(() => {
-    async function carregarDados() {
-      setLoading(true);
-      try {
-        const [resCli, resOrc, resMaq] = await Promise.all([
-          fetch('/api/dados?tabela=clientes'),
-          fetch('/api/dados?tabela=orcamentos'),
-          fetch('/api/dados?tabela=maquinas'),
-        ]);
-        const [cli, orc, maq] = await Promise.all([resCli.json(), resOrc.json(), resMaq.json()]);
-        
-        if (Array.isArray(cli)) setClientes(cli);
-        if (Array.isArray(orc)) setOrcamentos(orc);
-        if (Array.isArray(maq)) setMaquinas(maq);
-
-        // Pegar última sincronização (updated_at mais recente)
-        const todos = [...(Array.isArray(cli) ? cli : []), ...(Array.isArray(orc) ? orc : [])];
-        if (todos.length > 0) {
-          const datas = todos.filter(r => r.updated_at).map(r => new Date(r.updated_at).getTime());
-          if (datas.length > 0) {
-            setUltimaSync(new Date(Math.max(...datas)).toLocaleString('pt-BR'));
-          }
-        }
-      } catch (err) {
-        console.error('Erro ao carregar dados:', err);
-      }
-      setLoading(false);
-    }
-    carregarDados();
-  }, []);
 
   const clientesEmRisco = clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 90);
   const totalOrcamentos = orcamentos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0);
