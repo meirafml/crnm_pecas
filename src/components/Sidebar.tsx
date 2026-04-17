@@ -11,10 +11,10 @@ export default function Sidebar() {
     <div className="w-64 h-screen border-r border-[#ffffff15] bg-[#00000030] backdrop-blur-xl flex flex-col p-4 fixed left-0 top-0">
       <div className="flex flex-col items-center gap-3 mb-10 mt-6 px-2">
         {/*
-          Caso a imagem original da logo seja preta em fundo transparente, a classe 'invert opacity-90' vai deixá-la branca para combinar com o tema escuro.
-          Certifique-se de salvar o anexo como "logo-bouwman.png" dentro da pasta "public" do projeto.
+          A imagem fornecida possui as letras em branco nativamente, combinando perfeitamente com o fundo escuro do dashboard.
+          Certifique-se de salvar o novo anexo branco como "logo-bouwman.png" dentro da pasta "public".
         */}
-        <img src="/logo-bouwman.png" alt="Bouwman Livestock & Agriculture" className="w-44 invert opacity-90 brightness-150" />
+        <img src="/logo-bouwman.png" alt="Bouwman Service" className="w-48" />
         <div className="text-center mt-2 border-t border-white/10 w-full pt-3">
           <h1 className="font-bold text-sm tracking-widest text-sky-400 uppercase">CRM <span className="opacity-70 font-light text-white">Peças</span></h1>
         </div>
