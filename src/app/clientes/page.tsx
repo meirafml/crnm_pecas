@@ -87,8 +87,8 @@ export default function ClientesPage() {
   const itensPaginados = filtradosOrdenados.slice((paginaAtual - 1) * ITENS_POR_PAGINA, paginaAtual * ITENS_POR_PAGINA);
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="flex-1 overflow-y-auto">
+      <div className="w-full space-y-6">
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>

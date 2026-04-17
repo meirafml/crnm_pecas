@@ -63,8 +63,8 @@ export default function MaquinasPage() {
   const fabricantes = Array.from(new Set(maquinas.map(m => String(m.FABRICANTE || m.marca || '').trim()).filter(Boolean))).sort();
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="flex-1 overflow-y-auto animate-in fade-in duration-500">
+      <div className="w-full space-y-6">
         
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>

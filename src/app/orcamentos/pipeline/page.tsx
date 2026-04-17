@@ -94,12 +94,12 @@ export default function PipelineOrcamentos() {
                     {o.CODIGO_PRODUTO_ORC}
                   </div>
                   
-                  <div className="pt-3 border-t border-white/5 flex justify-between items-center">
-                    <div className="text-[10px] uppercase text-gray-500 font-medium flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-500 inline-block"></span>
-                      {o.ORC_NOME_VENDEDOR?.split(' ')[0] || 'Vendedor'}
+                  <div className="pt-3 border-t border-white/5 flex justify-between items-center gap-2">
+                    <div className="text-[10px] uppercase text-gray-500 font-medium flex items-center gap-1 overflow-hidden">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-500 shrink-0"></span>
+                      <span className="truncate">{o.ORC_NOME_VENDEDOR?.split(' ')[0] || 'Vendedor'}</span>
                     </div>
-                    <div className="font-bold text-emerald-300 text-sm">
+                    <div className="font-bold text-emerald-300 text-sm shrink-0">
                       R$ {o.ORC_VALOR_TOTAL.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
                     </div>
                   </div>

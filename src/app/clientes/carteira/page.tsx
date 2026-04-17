@@ -56,7 +56,7 @@ export default function PipelineCarteira() {
       </header>
 
       {/* KANBAN BOARD */}
-      <div className="flex gap-6 overflow-x-auto pb-4 flex-1 h-[calc(100vh-200px)]">
+      <div className="flex gap-6 overflow-x-auto pb-4 flex-1 h-[calc(100vh-200px)] pr-8 after:content-[''] after:w-4 after:shrink-0">
         {Object.entries(colunas).map(([chave, coluna]) => (
           <div key={chave} className="flex-none w-[340px] flex flex-col h-full bg-[#ffffff02] rounded-xl border border-white/5">
             {/* Header da Coluna */}
