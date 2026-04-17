@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AlertCircle, ChevronRight, Clock, MapPin, ReceiptText, Tractor, TrendingUp, Users, MessageCircle, X, Loader2, Database } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, Cell, LabelList } from 'recharts';
 import Link from 'next/link';
 import Cliente360Modal from '@/components/Cliente360Modal';
 
@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [crossFilial, setCrossFilial] = useState('');
   const [crossFabricante, setCrossFabricante] = useState('');
   const [crossModelo, setCrossModelo] = useState('');
+  const [crossVendedor, setCrossVendedor] = useState('');
 
   const clientesEmRisco = clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 90);
   const totalOrcamentos = orcamentos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0);
@@ -82,12 +83,14 @@ export default function Dashboard() {
   const crossFiliasDisponiveis = Array.from(new Set(maquinasRecentesTotal.map(m => String(m.FILIAL || '')).filter(Boolean)));
   const crossFabricantesDisponiveis = Array.from(new Set(maquinasRecentesTotal.map(m => String(m.FABRICANTE || m.marca || '').trim()).filter(Boolean)));
   const crossModelosDisponiveis = Array.from(new Set(maquinasRecentesTotal.map(m => String(m.MODELO || '').trim()).filter(Boolean)));
+  const crossVendedoresDisponiveis = Array.from(new Set(maquinasRecentesTotal.map(m => String(m.NOME_VENDEDOR || '').trim()).filter(Boolean))).sort();
 
   // Aplicar Filtros ao Cross-Sell
   const maquinasRecentesFiltradas = maquinasRecentesTotal.filter(m => {
     if (crossFilial && String(m.FILIAL) !== crossFilial) return false;
     if (crossFabricante && String(m.FABRICANTE || m.marca || '').trim() !== crossFabricante) return false;
     if (crossModelo && String(m.MODELO || '').trim() !== crossModelo) return false;
+    if (crossVendedor && String(m.NOME_VENDEDOR || '').trim() !== crossVendedor) return false;
     return true;
   });
 
@@ -179,61 +182,20 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
         
-        {/* LISTA DE CLIENTES EM RISCO */}
-        <div className="lg:col-span-2 glass-panel p-6 flex flex-col">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <TrendingUp size={18} className="text-sky-400" /> 
-              Resgate Imediato — Clientes para Reativar
-            </h2>
-            <Link href="/clientes" className="text-sm text-sky-400 hover:text-sky-300 flex items-center gap-1 transition-colors">
-              Ver todos <ChevronRight size={14} />
-            </Link>
-          </div>
-          
-          <div className="space-y-2">
-            {clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 0 && c.STATUS_BASE !== 'BLOQUEADO' && (c.DIAS_SEM_COMPRA || 0) < 365).sort((a,b) => (b.DIAS_SEM_COMPRA || 0) - (a.DIAS_SEM_COMPRA || 0)).slice(0, 12).map((c) => (
-              <div key={c.id} onClick={() => setClienteModal({codigo: c.CODIGO_CLIENTE, loja: c.LOJA_CLIENTE})} className="group glass-panel !bg-white/[0.02] hover:!bg-white/[0.05] p-3.5 transition-all flex justify-between items-center cursor-pointer border border-transparent hover:border-white/10">
-                <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${(c.DIAS_SEM_COMPRA || 0) > 90 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : (c.DIAS_SEM_COMPRA || 0) > 30 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
-                    {(c.NOME_CLIENTE || '??').substring(0,2).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-100 text-sm group-hover:text-white transition-colors">{c.NOME_CLIENTE}</h3>
-                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                      <MapPin size={10} /> {c.CIDADE}-{c.UF}
-                      {c.STATUS_BASE === 'BLOQUEADO' && <span className="ml-2 text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full">BLOQUEADO</span>}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className={`text-sm font-semibold ${(c.DIAS_SEM_COMPRA || 0) > 90 ? 'text-red-400' : (c.DIAS_SEM_COMPRA || 0) > 30 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                    {c.DIAS_SEM_COMPRA || 0} dias
-                  </div>
-                  <div className="text-[10px] text-gray-500">sem comprar</div>
-                </div>
-              </div>
-            ))}
-            {clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 0 && c.STATUS_BASE !== 'BLOQUEADO' && (c.DIAS_SEM_COMPRA || 0) < 365).length === 0 && (
-              <div className="text-sm text-gray-500 text-center py-6">Nenhum cliente em risco iminente encontrado.</div>
-            )}
-          </div>
-        </div>
-
-        {/* LISTA DE OPORTUNIDADES CROSS-SELL RECENTES */}
+        {/* LISTA DE OPORTUNIDADES CROSS-SELL RECENTES (MOVED TO TOP) */}
         <div className="lg:col-span-2 glass-panel p-6 flex flex-col border border-amber-500/20 bg-amber-950/10 shadow-[0_0_30px_rgba(245,158,11,0.05)]">
           <div className="flex flex-col mb-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <Tractor size={18} className="text-amber-400" /> 
-                <span className="text-amber-500">Leads Quentes</span> — Entregas Recentes
+                Máquinas vendidas recentemente
               </h2>
               <Link href="/maquinas" className="text-sm text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors">
                 Trabalhar Leads <ChevronRight size={14} />
               </Link>
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
                <select className="bg-black/30 border border-amber-500/20 text-xs rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-amber-500" value={crossFilial} onChange={e => setCrossFilial(e.target.value)}>
                  <option value="">Filial Inicial (Todas)</option>
                  {crossFiliasDisponiveis.map((f:any) => <option key={f} value={f}>Filial {f}</option>)}
@@ -246,8 +208,12 @@ export default function Dashboard() {
                  <option value="">Modelo (Todos)</option>
                  {crossModelosDisponiveis.map((m:any) => <option key={m} value={m}>{m}</option>)}
                </select>
-               {(crossFilial || crossFabricante || crossModelo) && (
-                  <button onClick={() => {setCrossFilial(''); setCrossFabricante(''); setCrossModelo('');}} className="text-red-400 text-xs hover:text-red-300 flex items-center gap-1 px-2">
+               <select className="bg-black/30 border border-amber-500/20 text-xs rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-amber-500" value={crossVendedor} onChange={e => setCrossVendedor(e.target.value)}>
+                 <option value="">Vendedor (Todos)</option>
+                 {crossVendedoresDisponiveis.map((v:any) => <option key={v} value={v}>{v}</option>)}
+               </select>
+               {(crossFilial || crossFabricante || crossModelo || crossVendedor) && (
+                  <button onClick={() => {setCrossFilial(''); setCrossFabricante(''); setCrossModelo(''); setCrossVendedor('');}} className="text-red-400 text-xs hover:text-red-300 flex items-center gap-1 px-2">
                     <X size={12}/> Limpar Filtro
                   </button>
                )}
@@ -323,6 +289,49 @@ export default function Dashboard() {
           </Link>
         </div>
 
+        {/* LISTA DE CLIENTES EM RISCO (MOVED TO BOTTOM) */}
+        <div className="lg:col-span-2 glass-panel p-6 flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <TrendingUp size={18} className="text-sky-400" /> 
+              Resgate Imediato — Clientes para Reativar
+            </h2>
+            <Link href="/clientes" className="text-sm text-sky-400 hover:text-sky-300 flex items-center gap-1 transition-colors">
+              Ver todos <ChevronRight size={14} />
+            </Link>
+          </div>
+          
+          <div className="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
+            {clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 0 && c.STATUS_BASE !== 'BLOQUEADO' && (c.DIAS_SEM_COMPRA || 0) < 365).sort((a,b) => (b.DIAS_SEM_COMPRA || 0) - (a.DIAS_SEM_COMPRA || 0)).slice(0, 12).map((c) => (
+              <div key={c.id} onClick={() => setClienteModal({codigo: c.CODIGO_CLIENTE, loja: c.LOJA_CLIENTE})} className="group glass-panel !bg-white/[0.02] hover:!bg-white/[0.05] p-3.5 transition-all flex justify-between items-center cursor-pointer border border-transparent hover:border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${(c.DIAS_SEM_COMPRA || 0) > 90 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : (c.DIAS_SEM_COMPRA || 0) > 30 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                    {(c.NOME_CLIENTE || '??').substring(0,2).toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-100 text-sm group-hover:text-white transition-colors">{c.NOME_CLIENTE}</h3>
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                      <MapPin size={10} /> {c.CIDADE}-{c.UF}
+                      {c.STATUS_BASE === 'BLOQUEADO' && <span className="ml-2 text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full">BLOQUEADO</span>}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`text-sm font-semibold ${(c.DIAS_SEM_COMPRA || 0) > 90 ? 'text-red-400' : (c.DIAS_SEM_COMPRA || 0) > 30 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    {c.DIAS_SEM_COMPRA || 0} dias
+                  </div>
+                  <div className="text-[10px] text-gray-500">sem comprar</div>
+                </div>
+              </div>
+            ))}
+            {clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 0 && c.STATUS_BASE !== 'BLOQUEADO' && (c.DIAS_SEM_COMPRA || 0) < 365).length === 0 && (
+              <div className="text-sm text-gray-500 text-center py-6">Nenhum cliente em risco iminente encontrado.</div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
         {/* GRÁFICOS VISUAIS (Recharts) */}
         <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
           {/* Gráfico 1: Funil de Orçamentos */}
@@ -333,7 +342,7 @@ export default function Dashboard() {
              </h2>
              <div className="h-[250px] w-full">
                <ResponsiveContainer width="100%" height="100%">
-                 <BarChart data={funilOrcamentos} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
+                 <BarChart data={funilOrcamentos} layout="vertical" margin={{ top: 0, right: 60, left: 40, bottom: 0 }}>
                    <XAxis type="number" stroke="#4b5563" tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
                    <YAxis dataKey="name" type="category" stroke="#9ca3af" width={90} />
                    <Tooltip 
@@ -345,6 +354,13 @@ export default function Dashboard() {
                       {funilOrcamentos.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
+                      <LabelList 
+                        dataKey="valor" 
+                        position="right" 
+                        fill="#9ca3af" 
+                        fontSize={11} 
+                        formatter={(val: number) => `R$ ${(val/1000).toFixed(1)}k`} 
+                      />
                    </Bar>
                  </BarChart>
                </ResponsiveContainer>
