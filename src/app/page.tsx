@@ -302,7 +302,11 @@ export default function Dashboard() {
           </div>
           
           <div className="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
-            {clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 0 && c.STATUS_BASE !== 'BLOQUEADO' && (c.DIAS_SEM_COMPRA || 0) < 365).sort((a,b) => (b.DIAS_SEM_COMPRA || 0) - (a.DIAS_SEM_COMPRA || 0)).slice(0, 12).map((c) => (
+            {clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 0 && c.STATUS_BASE !== 'BLOQUEADO' && (c.DIAS_SEM_COMPRA || 0) < 365).sort((a,b) => (b.DIAS_SEM_COMPRA || 0) - (a.DIAS_SEM_COMPRA || 0)).slice(0, 12).map((c) => {
+              const ultimasMaquinas = maquinas.filter(m => (m.COD_CLIENTE === c.CODIGO_CLIENTE || m.CODIGO_CLIENTE === c.CODIGO_CLIENTE) && String(m.LOJA_CLIENTE) === String(c.LOJA_CLIENTE))
+                                              .sort((a, b) => new Date(b.EMISSAO || 0).getTime() - new Date(a.EMISSAO || 0).getTime())
+                                              .slice(0, 1);
+              return (
               <div key={c.id} onClick={() => setClienteModal({codigo: c.CODIGO_CLIENTE, loja: c.LOJA_CLIENTE})} className="group glass-panel !bg-white/[0.02] hover:!bg-white/[0.05] p-3.5 transition-all flex justify-between items-center cursor-pointer border border-transparent hover:border-white/10">
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${(c.DIAS_SEM_COMPRA || 0) > 90 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : (c.DIAS_SEM_COMPRA || 0) > 30 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
@@ -314,6 +318,12 @@ export default function Dashboard() {
                       <MapPin size={10} /> {c.CIDADE}-{c.UF}
                       {c.STATUS_BASE === 'BLOQUEADO' && <span className="ml-2 text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full">BLOQUEADO</span>}
                     </p>
+                    {ultimasMaquinas.length > 0 && (
+                      <p className="text-[10px] text-gray-400/70 mt-1 flex flex-wrap gap-1 items-center">
+                        <Tractor size={10} className="text-amber-500/50" />
+                        <span>{ultimasMaquinas[0].FABRICANTE || ultimasMaquinas[0].marca || 'MÁQ'} {ultimasMaquinas[0].MODELO} ({ultimasMaquinas[0].EMISSAO || 's/d'})</span>
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">
@@ -323,7 +333,7 @@ export default function Dashboard() {
                   <div className="text-[10px] text-gray-500">sem comprar</div>
                 </div>
               </div>
-            ))}
+            )})}
             {clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 0 && c.STATUS_BASE !== 'BLOQUEADO' && (c.DIAS_SEM_COMPRA || 0) < 365).length === 0 && (
               <div className="text-sm text-gray-500 text-center py-6">Nenhum cliente em risco iminente encontrado.</div>
             )}
