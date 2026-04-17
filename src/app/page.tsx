@@ -395,7 +395,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-      </div>
 
       {/* MODAL DE ORÇAMENTOS DO VENDEDOR */}
       {vendedorSelecionado && (
