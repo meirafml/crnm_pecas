@@ -13,6 +13,11 @@ export default function Dashboard() {
   const [vendedorSelecionado, setVendedorSelecionado] = useState<any>(null);
   const [clienteModal, setClienteModal] = useState<{codigo: string, loja: string} | null>(null);
 
+  // States para Filtros do Cross-Sell
+  const [crossFilial, setCrossFilial] = useState('');
+  const [crossFabricante, setCrossFabricante] = useState('');
+  const [crossModelo, setCrossModelo] = useState('');
+
   const clientesEmRisco = clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 90);
   const totalOrcamentos = orcamentos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0);
   const totalAtivos = clientes.filter(c => c.STATUS_BASE === 'ATIVO').length;
@@ -59,6 +64,32 @@ export default function Dashboard() {
     bucket.quantidade += 1;
   });
   const churnData = churnDataRaw;
+
+  // LÓGICA DE CROSS-SELL (Máquinas Faturadas nos últimos 90 dias)
+  const maquinasRecentesTotal = maquinas.map(m => {
+    let diasAge = 9999;
+    if (m.EMISSAO) {
+      // Tenta fazer o parse da data EMISSAO
+      const dt = new Date(m.EMISSAO.toString().includes('Date') ? parseInt(m.EMISSAO.match(/\d+/)![0]) : m.EMISSAO);
+      if (!isNaN(dt.getTime())) {
+        diasAge = Math.floor((new Date().getTime() - dt.getTime()) / (1000 * 60 * 60 * 24));
+      }
+    }
+    return { ...m, diasAposFaturamento: diasAge };
+  }).filter(m => m.diasAposFaturamento <= 90).sort((a,b) => a.diasAposFaturamento - b.diasAposFaturamento);
+
+  // Opções para os combos
+  const crossFiliasDisponiveis = Array.from(new Set(maquinasRecentesTotal.map(m => String(m.FILIAL || '')).filter(Boolean)));
+  const crossFabricantesDisponiveis = Array.from(new Set(maquinasRecentesTotal.map(m => String(m.FABRICANTE || m.marca || '').trim()).filter(Boolean)));
+  const crossModelosDisponiveis = Array.from(new Set(maquinasRecentesTotal.map(m => String(m.MODELO || '').trim()).filter(Boolean)));
+
+  // Aplicar Filtros ao Cross-Sell
+  const maquinasRecentesFiltradas = maquinasRecentesTotal.filter(m => {
+    if (crossFilial && String(m.FILIAL) !== crossFilial) return false;
+    if (crossFabricante && String(m.FABRICANTE || m.marca || '').trim() !== crossFabricante) return false;
+    if (crossModelo && String(m.MODELO || '').trim() !== crossModelo) return false;
+    return true;
+  });
 
   // Estado vazio
   const semDados = clientes.length === 0 && orcamentos.length === 0 && maquinas.length === 0;
@@ -129,11 +160,12 @@ export default function Dashboard() {
           accentColor="red"
         />
         <KpiCard 
-          title="Parque de Máquinas" 
-          value={maquinas.length.toString()} 
-          subtitle="Equipamentos registrados"
+          title="Oportunidades Cross-Sell" 
+          value={maquinasRecentesTotal.length.toString()} 
+          subtitle="Equipamentos vendidos < 90 dias"
           icon={<Tractor className="text-amber-400" />}
           accentColor="amber"
+          href="/maquinas"
         />
         <KpiCard 
           title="Orçamentos Abertos" 
@@ -182,11 +214,80 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
+            {clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 0 && c.STATUS_BASE !== 'BLOQUEADO' && (c.DIAS_SEM_COMPRA || 0) < 365).length === 0 && (
+              <div className="text-sm text-gray-500 text-center py-6">Nenhum cliente em risco iminente encontrado.</div>
+            )}
+          </div>
+        </div>
+
+        {/* LISTA DE OPORTUNIDADES CROSS-SELL RECENTES */}
+        <div className="lg:col-span-2 glass-panel p-6 flex flex-col border border-amber-500/20 bg-amber-950/10 shadow-[0_0_30px_rgba(245,158,11,0.05)]">
+          <div className="flex flex-col mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Tractor size={18} className="text-amber-400" /> 
+                <span className="text-amber-500">Leads Quentes</span> — Entregas Recentes
+              </h2>
+              <Link href="/maquinas" className="text-sm text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors">
+                Trabalhar Leads <ChevronRight size={14} />
+              </Link>
+            </div>
+            
+            <div className="flex gap-2">
+               <select className="bg-black/30 border border-amber-500/20 text-xs rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-amber-500" value={crossFilial} onChange={e => setCrossFilial(e.target.value)}>
+                 <option value="">Filial Inicial (Todas)</option>
+                 {crossFiliasDisponiveis.map((f:any) => <option key={f} value={f}>Filial {f}</option>)}
+               </select>
+               <select className="bg-black/30 border border-amber-500/20 text-xs rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-amber-500" value={crossFabricante} onChange={e => setCrossFabricante(e.target.value)}>
+                 <option value="">Fabricante (Todos)</option>
+                 {crossFabricantesDisponiveis.map((f:any) => <option key={f} value={f}>{f}</option>)}
+               </select>
+               <select className="bg-black/30 border border-amber-500/20 text-xs rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-amber-500" value={crossModelo} onChange={e => setCrossModelo(e.target.value)}>
+                 <option value="">Modelo (Todos)</option>
+                 {crossModelosDisponiveis.map((m:any) => <option key={m} value={m}>{m}</option>)}
+               </select>
+               {(crossFilial || crossFabricante || crossModelo) && (
+                  <button onClick={() => {setCrossFilial(''); setCrossFabricante(''); setCrossModelo('');}} className="text-red-400 text-xs hover:text-red-300 flex items-center gap-1 px-2">
+                    <X size={12}/> Limpar Filtro
+                  </button>
+               )}
+            </div>
+          </div>
+          
+          <div className="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
+            {maquinasRecentesFiltradas.slice(0, 20).map((m) => (
+              <div key={m.id} onClick={() => setClienteModal({codigo: m.COD_CLIENTE || m.CODIGO_CLIENTE, loja: m.LOJA_CLIENTE})} className="group glass-panel !bg-amber-500/[0.02] hover:!bg-amber-500/[0.08] p-3.5 transition-all flex justify-between items-center cursor-pointer border border-transparent hover:border-amber-500/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
+                    <Tractor size={16} />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-100 text-sm group-hover:text-white transition-colors">{m.NOME_CLIENTE || 'N/A'}</h3>
+                    <p className="text-xs text-gray-500 flex flex-wrap items-center gap-2 mt-0.5">
+                      <strong className="text-amber-200/80">{m.MODELO || 'N/A'}</strong>
+                      <span>NF: {m.NOTA_FISCAL || '—'}</span>
+                      <span className="opacity-50">| Vendedor Máq: {m.NOME_VENDEDOR || 'N/A'}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-semibold text-emerald-400">
+                    Faturado há {m.diasAposFaturamento} d
+                  </div>
+                  <div className="text-[10px] text-gray-500">{m.EMISSAO}</div>
+                </div>
+              </div>
+            ))}
+            {maquinasRecentesFiltradas.length === 0 && (
+               <div className="text-sm text-gray-500 text-center py-8 bg-black/20 rounded-lg">
+                 Nenhuma entrega recente nos últimos 90 dias com os filtros selecionados.
+               </div>
+            )}
           </div>
         </div>
 
         {/* RANKING COMERCIAL */}
-        <div className="glass-panel p-6 flex flex-col">
+        <div className="glass-panel p-6 flex flex-col lg:row-span-2">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
               <Users size={18} className="text-amber-400" />

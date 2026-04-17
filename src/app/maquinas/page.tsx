@@ -29,6 +29,7 @@ export default function MaquinasPage() {
   const [categoriaFiltro, setCategoriaFiltro] = useState('');
   const [fabricanteFiltro, setFabricanteFiltro] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState('');
+  const [somenteRecentes, setSomenteRecentes] = useState(false);
 
   const filtrados = maquinas.filter(m => {
     const term = busca.toLowerCase();
@@ -42,7 +43,20 @@ export default function MaquinasPage() {
     const passaFabricante = fabricanteFiltro ? String(m.FABRICANTE || m.marca || '').trim() === fabricanteFiltro.trim() : true;
     const passaEstado = estadoFiltro ? String(m.ESTADO || '').trim() === estadoFiltro.trim() : true;
 
-    return passaBusca && passaCategoria && passaFabricante && passaEstado;
+    let passaRecente = true;
+    if (somenteRecentes && m.EMISSAO) {
+      const dt = new Date(m.EMISSAO.toString().includes('Date') ? parseInt(m.EMISSAO.match(/\d+/)![0]) : m.EMISSAO);
+      if (!isNaN(dt.getTime())) {
+        const diasAge = Math.floor((new Date().getTime() - dt.getTime()) / (1000 * 60 * 60 * 24));
+        passaRecente = diasAge <= 90;
+      } else {
+        passaRecente = false;
+      }
+    } else if (somenteRecentes && !m.EMISSAO) {
+      passaRecente = false;
+    }
+
+    return passaBusca && passaCategoria && passaFabricante && passaEstado && passaRecente;
   });
 
   const categorias = Array.from(new Set(maquinas.map(m => String(m.CATEGORIA || '').trim()).filter(Boolean))).sort();
@@ -97,10 +111,17 @@ export default function MaquinasPage() {
             <option value="USADO">Apenas USADO</option>
           </select>
           
-          {(busca || categoriaFiltro || fabricanteFiltro || estadoFiltro) && (
+          <button 
+            onClick={() => setSomenteRecentes(!somenteRecentes)}
+            className={`px-4 py-2 text-sm rounded-lg flex items-center gap-2 border transition-colors ${somenteRecentes ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'bg-black/40 text-gray-400 border-white/10 hover:border-amber-500/30'}`}
+          >
+            ⚡ Limitar a Entregas Recentes ({'<'} 90d)
+          </button>
+          
+          {(busca || categoriaFiltro || fabricanteFiltro || estadoFiltro || somenteRecentes) && (
             <button 
-              onClick={() => { setBusca(''); setCategoriaFiltro(''); setFabricanteFiltro(''); setEstadoFiltro(''); }}
-              className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
+              onClick={() => { setBusca(''); setCategoriaFiltro(''); setFabricanteFiltro(''); setEstadoFiltro(''); setSomenteRecentes(false); }}
+              className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 ml-auto"
             >
               <X size={14} /> Limpar
             </button>
