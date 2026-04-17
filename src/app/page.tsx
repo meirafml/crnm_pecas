@@ -359,7 +359,7 @@ export default function Dashboard() {
                         position="right" 
                         fill="#9ca3af" 
                         fontSize={11} 
-                        formatter={(val: number) => `R$ ${(val/1000).toFixed(1)}k`} 
+                        formatter={(val: any) => `R$ ${(Number(val)/1000).toFixed(1)}k`} 
                       />
                    </Bar>
                  </BarChart>
