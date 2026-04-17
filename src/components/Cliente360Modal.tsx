@@ -3,6 +3,22 @@
 import { useEffect, useState } from 'react';
 import { X, Loader2, MapPin, Phone, Mail, Tractor, ReceiptText, ShieldCheck, Flame, Skull, AlertTriangle, MessageCircle } from 'lucide-react';
 
+function fixEncoding(str: any) {
+  if (typeof str !== 'string' || !str) return str;
+  return str
+    .replace(/FENA\ufffd\ufffdO/gi, 'FENAÇÃO')
+    .replace(/FENA\ufffdO/gi, 'FENAÇÃO')
+    .replace(/FENA\?O/gi, 'FENAÇÃO')
+    .replace(/FENAO/gi, 'FENAÇÃO')
+    .replace(/ACESS\ufffdRIOS/gi, 'ACESSÓRIOS')
+    .replace(/ACESS\?RIOS/gi, 'ACESSÓRIOS')
+    .replace(/ACESSRIOS/gi, 'ACESSÓRIOS')
+    .replace(/PULVERIZA\ufffd\ufffdO/gi, 'PULVERIZAÇÃO')
+    .replace(/PULVERIZAO/gi, 'PULVERIZAÇÃO')
+    .replace(/CONSTRU\ufffd\ufffdO/gi, 'CONSTRUÇÃO')
+    .replace(/CONSTRUAO/gi, 'CONSTRUÇÃO');
+}
+
 interface Cliente360ModalProps {
   codigoCliente: string;
   lojaCliente: string;
@@ -235,8 +251,8 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
                           {maquinas.map((m: any) => (
                             <tr key={m.id} className="hover:bg-white/[0.02]">
                               <td className="px-4 py-3">
-                                <div className="font-bold text-white">{m.MODELO || 'N/A'}</div>
-                                <div className="text-[10px] text-gray-500 uppercase">{m.CATEGORIA || 'SEM CATEGORIA'}</div>
+                                <div className="font-bold text-white">{fixEncoding(m.MODELO) || 'N/A'}</div>
+                                <div className="text-[10px] text-gray-500 uppercase">{fixEncoding(m.CATEGORIA) || 'SEM CATEGORIA'}</div>
                               </td>
                               <td className="px-4 py-3 text-gray-300 text-xs">{m.FABRICANTE || '—'}</td>
                               <td className="px-4 py-3 text-center text-amber-400/80 font-mono text-xs">{m.CHASSI || '—'}</td>

@@ -5,6 +5,22 @@ import { Loader2, Search, MapPin, X } from 'lucide-react';
 
 import { useData } from '@/contexts/DataContext';
 
+function fixEncoding(str: any) {
+  if (typeof str !== 'string' || !str) return str;
+  return str
+    .replace(/FENA\ufffd\ufffdO/gi, 'FENAÇÃO')
+    .replace(/FENA\ufffdO/gi, 'FENAÇÃO')
+    .replace(/FENA\?O/gi, 'FENAÇÃO')
+    .replace(/FENAO/gi, 'FENAÇÃO')
+    .replace(/ACESS\ufffdRIOS/gi, 'ACESSÓRIOS')
+    .replace(/ACESS\?RIOS/gi, 'ACESSÓRIOS')
+    .replace(/ACESSRIOS/gi, 'ACESSÓRIOS')
+    .replace(/PULVERIZA\ufffd\ufffdO/gi, 'PULVERIZAÇÃO')
+    .replace(/PULVERIZAO/gi, 'PULVERIZAÇÃO')
+    .replace(/CONSTRU\ufffd\ufffdO/gi, 'CONSTRUÇÃO')
+    .replace(/CONSTRUAO/gi, 'CONSTRUÇÃO');
+}
+
 export default function MaquinasPage() {
   const { maquinas, loading } = useData();
   const [busca, setBusca] = useState('');
@@ -113,9 +129,9 @@ export default function MaquinasPage() {
                 {filtrados.map((m) => (
                   <tr key={m.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-medium text-white">{m.MODELO}</div>
+                      <div className="font-medium text-white">{fixEncoding(m.MODELO)}</div>
                       <div className="text-xs text-amber-300 font-mono mt-1">Chassi: {m.CHASSI || '—'}</div>
-                      <div className="text-[10px] text-gray-500 mt-0.5">{m.FABRICANTE} • {m.ESTADO}</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">{m.FABRICANTE} • {fixEncoding(m.ESTADO)} • {fixEncoding(m.CATEGORIA)}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-gray-200">{m.NOME_CLIENTE || '—'}</div>

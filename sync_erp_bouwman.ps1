@@ -160,9 +160,12 @@ try {
 
                 $JsonPayload = $PartialPayload | ConvertTo-Json -Depth 6 -Compress
 
+                # Garante codificação UTF-8 no Body do POST (Impede que ç, á, ó virem ?)
+                $JsonBytes = [System.Text.Encoding]::UTF8.GetBytes($JsonPayload)
+
                 Write-Log "  -> Lote $BatchNum/$Batches de '$Key' ($($Chunk.Count) registros)..."
                 
-                $Response = Invoke-RestMethod -Uri $ApiEndpoint -Method Post -Headers $Headers -Body $JsonPayload
+                $Response = Invoke-RestMethod -Uri $ApiEndpoint -Method Post -Headers $Headers -Body $JsonBytes
                 Write-Log "  -> OK! Resposta: $($Response.message)"
                 
                 Start-Sleep -Milliseconds 300  # Pequena pausa para não sobrecarregar
