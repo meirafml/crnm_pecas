@@ -1,13 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Loader2, Search, Calendar, X } from 'lucide-react';
+import { useEffect, useState, useMemo, useDeferredValue } from 'react';
+import { Loader2, Search, Calendar, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { useData } from '@/contexts/DataContext';
 
 export default function OrcamentosPage() {
   const { orcamentos, loading } = useData();
   const [busca, setBusca] = useState('');
+  const deferredBusca = useDeferredValue(busca);
+
+  // Pagination
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const ITENS_POR_PAGINA = 50;
   
   // Advanced Filters
   const [vendedorFiltro, setVendedorFiltro] = useState('');
@@ -15,35 +20,44 @@ export default function OrcamentosPage() {
   const [statusFiltro, setStatusFiltro] = useState('');
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'} | null>(null);
 
-  let filtrados = orcamentos.filter(o => {
-    const term = busca.toLowerCase();
-    const passaBusca = (o.CLIENTE_ORC || '').toLowerCase().includes(term) || 
-                       (o.ORC_NUMERO_ORCAMENTO || '').toLowerCase().includes(term) || 
-                       (o.CODIGO_PRODUTO_ORC || '').toLowerCase().includes(term);
-    const passaVendedor = vendedorFiltro ? o.ORC_NOME_VENDEDOR === vendedorFiltro : true;
-    const statusObj = o.STATUS_ORCAMENTO || o.STATUS || 'Aberto';
-    const passaStatus = statusFiltro ? (statusObj.toLowerCase() === statusFiltro.toLowerCase()) : true;
-    
-    return passaBusca && passaVendedor && passaStatus;
-  });
+  // Reset pagination when filters change
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [deferredBusca, vendedorFiltro, ordemFiltro, statusFiltro, sortConfig]);
 
-  if (sortConfig) {
-    filtrados.sort((a, b) => {
-      let valA = a[sortConfig.key] || '';
-      let valB = b[sortConfig.key] || '';
-      if (sortConfig.key === 'ORC_DATA_EMISSAO_ORCAMENTO') {
-        valA = new Date(valA || 0).getTime();
-        valB = new Date(valB || 0).getTime();
-      }
-      if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
+  const filtrados = useMemo(() => {
+    let result = orcamentos.filter(o => {
+      const term = deferredBusca.toLowerCase();
+      const passaBusca = (o.CLIENTE_ORC || '').toLowerCase().includes(term) || 
+                         (o.ORC_NUMERO_ORCAMENTO || '').toLowerCase().includes(term) || 
+                         (o.CODIGO_PRODUTO_ORC || '').toLowerCase().includes(term);
+      const passaVendedor = vendedorFiltro ? o.ORC_NOME_VENDEDOR === vendedorFiltro : true;
+      const statusObj = o.STATUS_ORCAMENTO || o.STATUS || 'Aberto';
+      const passaStatus = statusFiltro ? (statusObj.toLowerCase() === statusFiltro.toLowerCase()) : true;
+      
+      return passaBusca && passaVendedor && passaStatus;
     });
-  } else if (ordemFiltro === 'maior') {
-    filtrados.sort((a, b) => (b.ORC_VALOR_TOTAL || 0) - (a.ORC_VALOR_TOTAL || 0));
-  } else if (ordemFiltro === 'menor') {
-    filtrados.sort((a, b) => (a.ORC_VALOR_TOTAL || 0) - (b.ORC_VALOR_TOTAL || 0));
-  }
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        let valA = a[sortConfig.key] || '';
+        let valB = b[sortConfig.key] || '';
+        if (sortConfig.key === 'ORC_DATA_EMISSAO_ORCAMENTO') {
+          valA = new Date(valA || 0).getTime();
+          valB = new Date(valB || 0).getTime();
+        }
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    } else if (ordemFiltro === 'maior') {
+      result.sort((a, b) => (b.ORC_VALOR_TOTAL || 0) - (a.ORC_VALOR_TOTAL || 0));
+    } else if (ordemFiltro === 'menor') {
+      result.sort((a, b) => (a.ORC_VALOR_TOTAL || 0) - (b.ORC_VALOR_TOTAL || 0));
+    }
+    
+    return result;
+  }, [orcamentos, deferredBusca, vendedorFiltro, ordemFiltro, statusFiltro, sortConfig]);
 
   const handleSort = (key: string) => {
     setSortConfig(current => {
@@ -55,6 +69,9 @@ export default function OrcamentosPage() {
   };
 
   const vendedores = Array.from(new Set(orcamentos.map(o => o.ORC_NOME_VENDEDOR).filter(Boolean))).sort();
+
+  const totalPaginas = Math.ceil(filtrados.length / ITENS_POR_PAGINA) || 1;
+  const itensPaginados = filtrados.slice((paginaAtual - 1) * ITENS_POR_PAGINA, paginaAtual * ITENS_POR_PAGINA);
 
   return (
     <div className="flex-1 p-8 overflow-y-auto animate-in fade-in duration-500">
@@ -135,7 +152,7 @@ export default function OrcamentosPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {filtrados.map((o) => (
+                {itensPaginados.map((o) => (
                   <tr key={o.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-medium text-white">{o.CLIENTE_ORC || '—'}</div>
@@ -170,7 +187,7 @@ export default function OrcamentosPage() {
                     </td>
                   </tr>
                 ))}
-                {filtrados.length === 0 && (
+                {itensPaginados.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
                       Nenhum orçamento encontrado.
@@ -180,6 +197,36 @@ export default function OrcamentosPage() {
               </tbody>
             </table>
           </div>
+          
+          {/* Controles de Paginação */}
+          {filtrados.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-white/[0.02] border-t border-white/5 gap-4">
+              <span className="text-sm text-gray-400">
+                Mostrando <span className="font-medium text-white">{((paginaAtual - 1) * ITENS_POR_PAGINA) + 1}</span> a{' '}
+                <span className="font-medium text-white">{Math.min(paginaAtual * ITENS_POR_PAGINA, filtrados.length)}</span> de{' '}
+                <span className="font-medium text-white">{filtrados.length}</span> orçamentos
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPaginaAtual(p => Math.max(1, p - 1))}
+                  disabled={paginaAtual === 1}
+                  className="p-2 rounded-lg bg-white/5 text-gray-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <div className="text-sm text-gray-400 font-medium px-4">
+                  Página {paginaAtual} de {totalPaginas}
+                </div>
+                <button
+                  onClick={() => setPaginaAtual(p => Math.min(totalPaginas, p + 1))}
+                  disabled={paginaAtual === totalPaginas}
+                  className="p-2 rounded-lg bg-white/5 text-gray-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

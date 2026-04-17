@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { Loader2, MapPin, Search, Tag, X } from 'lucide-react';
+import { useEffect, useState, useMemo, useDeferredValue } from 'react';
+import { Loader2, MapPin, Search, Tag, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Cliente360Modal from '@/components/Cliente360Modal';
 
 import { useData } from '@/contexts/DataContext';
@@ -9,6 +9,11 @@ import { useData } from '@/contexts/DataContext';
 export default function ClientesPage() {
   const { clientes, loading } = useData();
   const [busca, setBusca] = useState('');
+  const deferredBusca = useDeferredValue(busca);
+
+  // Pagination
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const ITENS_POR_PAGINA = 50;
 
   // Advanced Filters
   const [statusFiltro, setStatusFiltro] = useState('');
@@ -18,14 +23,19 @@ export default function ClientesPage() {
 
   const [cliente360, setCliente360] = useState<{ codigo: string, loja: string } | null>(null);
 
-  const isBuscandoCurto = busca.length > 0 && busca.length < 4;
+  const isBuscandoCurto = deferredBusca.length > 0 && deferredBusca.length < 3;
+
+  // Reset pagina current qnd os filtros mudarem
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [deferredBusca, statusFiltro, ufFiltro, diasFiltro]);
 
   const filtrados = useMemo(() => {
     if (!clientes) return [];
     if (isBuscandoCurto) return []; // Retorna vazio enquanto digita a string curta
 
     // Performance: calcula o .toLowerCase() uma vez só
-    const term = busca.toLowerCase();
+    const term = deferredBusca.toLowerCase();
 
     return clientes.filter(c => {
       // Evita erro se c.CODIGO_CLIENTE vier como numérico do banco
@@ -43,7 +53,7 @@ export default function ClientesPage() {
 
       return passaBusca && passaStatus && passaUf && passaDias;
     });
-  }, [clientes, busca, statusFiltro, ufFiltro, diasFiltro, isBuscandoCurto]);
+  }, [clientes, deferredBusca, statusFiltro, ufFiltro, diasFiltro, isBuscandoCurto]);
 
   const filtradosOrdenados = useMemo(() => {
     let result = [...filtrados];
@@ -72,6 +82,9 @@ export default function ClientesPage() {
   };
 
   const ufs = Array.from(new Set(clientes.map(c => c.UF).filter(Boolean))).sort();
+
+  const totalPaginas = Math.ceil(filtradosOrdenados.length / ITENS_POR_PAGINA) || 1;
+  const itensPaginados = filtradosOrdenados.slice((paginaAtual - 1) * ITENS_POR_PAGINA, paginaAtual * ITENS_POR_PAGINA);
 
   return (
     <div className="flex-1 p-8 overflow-y-auto">
@@ -161,7 +174,7 @@ export default function ClientesPage() {
                     </td>
                   </tr>
                 )}
-                {!isBuscandoCurto && filtradosOrdenados.map((c) => (
+                {!isBuscandoCurto && itensPaginados.map((c) => (
                   <tr
                     key={c.id}
                     onClick={() => setCliente360({ codigo: c.CODIGO_CLIENTE, loja: c.LOJA_CLIENTE })}
@@ -197,7 +210,7 @@ export default function ClientesPage() {
                     </td>
                   </tr>
                 ))}
-                {!isBuscandoCurto && filtradosOrdenados.length === 0 && (
+                {!isBuscandoCurto && itensPaginados.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                       Nenhum cliente encontrado.
@@ -207,6 +220,36 @@ export default function ClientesPage() {
               </tbody>
             </table>
           </div>
+          
+          {/* Controles de Paginação */}
+          {!isBuscandoCurto && filtradosOrdenados.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-white/[0.02] border-t border-white/5 gap-4">
+              <span className="text-sm text-gray-400">
+                Mostrando <span className="font-medium text-white">{((paginaAtual - 1) * ITENS_POR_PAGINA) + 1}</span> a{' '}
+                <span className="font-medium text-white">{Math.min(paginaAtual * ITENS_POR_PAGINA, filtradosOrdenados.length)}</span> de{' '}
+                <span className="font-medium text-white">{filtradosOrdenados.length}</span> clientes
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPaginaAtual(p => Math.max(1, p - 1))}
+                  disabled={paginaAtual === 1}
+                  className="p-2 rounded-lg bg-white/5 text-gray-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <div className="text-sm text-gray-400 font-medium px-4">
+                  Página {paginaAtual} de {totalPaginas}
+                </div>
+                <button
+                  onClick={() => setPaginaAtual(p => Math.min(totalPaginas, p + 1))}
+                  disabled={paginaAtual === totalPaginas}
+                  className="p-2 rounded-lg bg-white/5 text-gray-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
