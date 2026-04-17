@@ -5,6 +5,31 @@ import { Loader2, Search, Calendar, X, ChevronLeft, ChevronRight } from 'lucide-
 
 import { useData } from '@/contexts/DataContext';
 
+function formatDateUI(val: any) {
+  if (!val) return '—';
+  const s = String(val);
+  if (s === '2030-12-31' || s.includes('2030-12-31')) return 'Indefinido';
+  
+  const match = s.match(/^\/Date\((\d+)\)\/$/);
+  if (match) {
+    const d = new Date(parseInt(match[1], 10));
+    // Correção de timezone UTC
+    const d2 = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
+    return d2.toLocaleDateString('pt-BR');
+  }
+  
+  if (/^\d{8}$/.test(s)) {
+    return `${s.substring(6,8)}/${s.substring(4,6)}/${s.substring(0,4)}`;
+  }
+  
+  if (s.includes('-')) {
+    const [y, m, d] = s.split('T')[0].split('-');
+    if (y && m && d) return `${d}/${m}/${y}`;
+  }
+  
+  return s;
+}
+
 export default function OrcamentosPage() {
   const { orcamentos, loading } = useData();
   const [busca, setBusca] = useState('');
@@ -167,8 +192,8 @@ export default function OrcamentosPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1 text-gray-400 text-xs">
-                        <span className="flex items-center gap-1" title="Emissão"><Calendar size={12}/> {o.ORC_DATA_EMISSAO_ORCAMENTO || '—'}</span>
-                        <span className="text-[10px] text-gray-500" title="Validade">Até {o.ORC_DATA_ORCAMENTO === '2030-12-31' ? 'Indefinido' : o.ORC_DATA_ORCAMENTO}</span>
+                        <span className="flex items-center gap-1" title="Emissão"><Calendar size={12}/> {formatDateUI(o.ORC_DATA_EMISSAO_ORCAMENTO)}</span>
+                        <span className="text-[10px] text-gray-500" title="Validade">Até {formatDateUI(o.ORC_DATA_ORCAMENTO)}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">

@@ -21,7 +21,8 @@ export async function GET(request: Request) {
       let step = 999;
       let hasMore = true;
       while (hasMore) {
-        const { data, error } = await supabase.from(tableName).select('*').order(orderCol, { ascending: false, nullsFirst: false }).range(from, from + step);
+        // Usa `id` como ordenação secundária para garantir estabilidade na paginação e evitar linhas duplicadas/puladas.
+        const { data, error } = await supabase.from(tableName).select('*').order(orderCol, { ascending: false, nullsFirst: false }).order('id', { ascending: true }).range(from, from + step);
         if (error) throw error;
         if (data && data.length > 0) {
           allData = allData.concat(data);

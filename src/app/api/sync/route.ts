@@ -45,6 +45,32 @@ function parseNumerico(val: any): number | null {
   return isNaN(num) ? null : num;
 }
 
+// Converte formatos de datas do Protheus (/Date(ms)/ ou YYYYMMDD ou YYYY-MM-DD) para YYYY-MM-DD
+function parseData(val: any): string | null {
+  if (!val) return null;
+  const s = String(val).trim();
+  if (s === '') return null;
+  
+  // Formato ASP.NET: /Date(1775098800000)/
+  const match = s.match(/^\/Date\((\d+)\)\/$/);
+  if (match) {
+    const ms = parseInt(match[1], 10);
+    return new Date(ms).toISOString().split('T')[0];
+  }
+  
+  // Formato numérico YYYYMMDD: 20240702
+  if (/^\d{8}$/.test(s)) {
+    return `${s.substring(0,4)}-${s.substring(4,6)}-${s.substring(6,8)}`;
+  }
+  
+  // Formato ISO Padrão já contendo traços
+  if (s.includes('-')) {
+    return s.split('T')[0];
+  }
+  
+  return s;
+}
+
 // =====================================================================
 // PROCESSADORES POR ENTIDADE (campos específicos do dicionário)
 // =====================================================================
@@ -55,6 +81,7 @@ function processCliente(c: any): any {
   // Campos numéricos do dicionário
   r.DIAS_SEM_COMPRA = parseNumerico(r.DIAS_SEM_COMPRA);
   r.NF_12M = parseNumerico(r.NF_12M);
+  r.DATA_ULT_COMPRA = parseData(r.DATA_ULT_COMPRA);
   return r;
 }
 
@@ -62,6 +89,9 @@ function processOrcamento(o: any): any {
   const r = trimAll(o);
   // Garante unicidade usando ORC_NUMERO_ORCAMENTO + CODIGO_PRODUTO_ORC
   r.id = `${r.FILIAL_ORC}_${r.ORC_NUMERO_ORCAMENTO}_${r.CODIGO_PRODUTO_ORC}`;
+  // Datas
+  r.ORC_DATA_EMISSAO_ORCAMENTO = parseData(r.ORC_DATA_EMISSAO_ORCAMENTO);
+  r.ORC_DATA_ORCAMENTO = parseData(r.ORC_DATA_ORCAMENTO);
   // Campos financeiros BR (texto com vírgula) → número
   r.ORC_SALDO_ORCAMENTO = parseFinanceiro(r.ORC_SALDO_ORCAMENTO);
   r.ORC_VALOR_UNITARIO = parseFinanceiro(r.ORC_VALOR_UNITARIO);
@@ -72,10 +102,15 @@ function processOrcamento(o: any): any {
 
 function processMaquina(m: any, index: number): any {
   const r = trimAll(m);
-  // Usa UUID aleatório para evitar qualquer colisão na filial/chassi, 
-  // já que o ERP pode enviar linhas duplicadas do mesmo equipamento nas consultas brutas.
-  r.id = crypto.randomUUID();
+  // Usa um ID determinístico baseado em chaves fortes para permitir o UPSERT
+  // e evitar duplicação massiva no banco a cada sincronização.
+  r.id = `${r.FILIAL}_${r.CODIGO || ''}_${r.CHASSI || ''}_${r.NOTA_FISCAL || ''}`;
   
+  // Datas
+  r.EMISSAO = parseData(r.EMISSAO);
+  r.PRIMEIRA_COMPRA = parseData(r.PRIMEIRA_COMPRA);
+  r.ULTIMA_COMPRA = parseData(r.ULTIMA_COMPRA);
+
   // Campos numéricos inteiros
   r.QUANTIDADE = parseNumerico(r.QUANTIDADE);
   r.NUMERO_DE_COMPRAS = parseNumerico(r.NUMERO_DE_COMPRAS);
