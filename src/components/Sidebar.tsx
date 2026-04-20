@@ -2,10 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Tractor, FileText, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Tractor, FileText, Settings, LogOut, Zap } from 'lucide-react';
+import { useData } from '@/contexts/DataContext';
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { acoes } = useData();
+
+  // Contar ações pendentes para o badge
+  const acoesPendentes = acoes.filter((a: any) => ['PENDENTE', 'EM_ANDAMENTO', 'REAGENDADA'].includes(a.status)).length;
 
   return (
     <div className="w-64 h-screen border-r border-[#ffffff15] bg-[#00000030] backdrop-blur-xl flex flex-col p-4 fixed left-0 top-0">
@@ -28,6 +33,13 @@ export default function Sidebar() {
           <NavItem href="/orcamentos" icon={<FileText size={18} />} label="Tabela de Orçamentos" active={pathname === '/orcamentos'} />
           <NavItem href="/orcamentos/pipeline" icon={<LayoutDashboard size={18} />} label="Pipeline Comercial" active={pathname === '/orcamentos/pipeline'} />
           <NavItem href="/maquinas" icon={<Tractor size={18} />} label="Parque de Máquinas" active={pathname === '/maquinas'} />
+          <NavItem 
+            href="/acoes" 
+            icon={<Zap size={18} />} 
+            label="Ações Comerciais" 
+            active={pathname === '/acoes'} 
+            badge={acoesPendentes > 0 ? acoesPendentes : undefined}
+          />
         </div>
 
         <div className="pt-2 pb-1">
@@ -48,7 +60,7 @@ export default function Sidebar() {
   );
 }
 
-function NavItem({ href, icon, label, active = false }: { href: string, icon: React.ReactNode, label: string, active?: boolean }) {
+function NavItem({ href, icon, label, active = false, badge }: { href: string, icon: React.ReactNode, label: string, active?: boolean, badge?: number }) {
   return (
     <Link 
       href={href} 
@@ -59,7 +71,12 @@ function NavItem({ href, icon, label, active = false }: { href: string, icon: Re
       }`}
     >
       {icon}
-      {label}
+      <span className="flex-1">{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className="min-w-[20px] h-5 flex items-center justify-center text-[10px] font-black bg-violet-500 text-white rounded-full px-1.5 animate-pulse shadow-lg shadow-violet-500/30">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </Link>
   );
 }

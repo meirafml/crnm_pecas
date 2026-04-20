@@ -1,17 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, ChevronRight, Clock, MapPin, ReceiptText, Tractor, TrendingUp, Users, MessageCircle, X, Loader2, Database } from 'lucide-react';
+import { AlertCircle, ChevronRight, Clock, MapPin, ReceiptText, Tractor, TrendingUp, Users, MessageCircle, X, Loader2, Database, Zap } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, Cell, LabelList } from 'recharts';
 import Link from 'next/link';
 import Cliente360Modal from '@/components/Cliente360Modal';
+import AcaoCard from '@/components/AcaoCard';
+import ConcluirAcaoModal from '@/components/ConcluirAcaoModal';
 
 import { useData } from '@/contexts/DataContext';
 
 export default function Dashboard() {
-  const { clientes, orcamentos, maquinas, loading, ultimaSync } = useData();
+  const { clientes, orcamentos, maquinas, loading, ultimaSync, acoes, refreshAcoes } = useData();
   const [vendedorSelecionado, setVendedorSelecionado] = useState<any>(null);
   const [clienteModal, setClienteModal] = useState<{codigo: string, loja: string} | null>(null);
+  const [concluirAcao, setConcluirAcao] = useState<any>(null);
 
   // States para Filtros do Cross-Sell
   const [crossFilial, setCrossFilial] = useState('');
@@ -147,38 +150,90 @@ export default function Dashboard() {
       </header>
 
       {/* CARDS DE TOPO */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-        <KpiCard 
-          title="Total de Clientes" 
-          value={clientes.length.toString()} 
-          subtitle={`${totalAtivos} ativos • ${clientes.length - totalAtivos} bloqueados`}
-          icon={<Users className="text-sky-400" />}
-          accentColor="sky"
-        />
-        <KpiCard 
-          title="Risco de Evasão (Churn)" 
-          value={clientesEmRisco.length.toString()} 
-          subtitle="Clientes há >90 dias sem compra"
-          icon={<AlertCircle className="text-red-400" />}
-          accentColor="red"
-        />
-        <KpiCard 
-          title="Oportunidades Cross-Sell" 
-          value={maquinasRecentesTotal.length.toString()} 
-          subtitle="Equipamentos vendidos < 90 dias"
-          icon={<Tractor className="text-amber-400" />}
-          accentColor="amber"
-          href="/maquinas"
-        />
-        <KpiCard 
-          title="Orçamentos Abertos" 
-          value={`R$ ${totalOrcamentos.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`} 
-          subtitle={`${orcamentos.length} orçamentos pendentes`}
-          icon={<ReceiptText className="text-emerald-400" />}
-          accentColor="emerald"
-          href="/orcamentos"
-        />
-      </div>
+      {(() => {
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        const acoesAtivas = acoes.filter((a: any) => ['PENDENTE', 'EM_ANDAMENTO', 'REAGENDADA'].includes(a.status));
+        const acoesVencidas = acoesAtivas.filter((a: any) => {
+          if (!a.data_vencimento) return false;
+          return new Date(a.data_vencimento + 'T00:00:00') < hoje;
+        });
+        const acoesHoje = acoesAtivas.filter((a: any) => {
+          if (!a.data_vencimento) return false;
+          const venc = new Date(a.data_vencimento + 'T00:00:00');
+          return venc.getTime() === hoje.getTime();
+        });
+        const acoesUrgentes = [...acoesVencidas, ...acoesHoje, ...acoesAtivas.filter((a: any) => a.prioridade === 'URGENTE' && !acoesVencidas.includes(a) && !acoesHoje.includes(a))].slice(0, 5);
+        return (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
+              <KpiCard 
+                title="Total de Clientes" 
+                value={clientes.length.toString()} 
+                subtitle={`${totalAtivos} ativos • ${clientes.length - totalAtivos} bloqueados`}
+                icon={<Users className="text-sky-400" />}
+                accentColor="sky"
+              />
+              <KpiCard 
+                title="Risco de Evasão (Churn)" 
+                value={clientesEmRisco.length.toString()} 
+                subtitle="Clientes há >90 dias sem compra"
+                icon={<AlertCircle className="text-red-400" />}
+                accentColor="red"
+              />
+              <KpiCard 
+                title="Oportunidades Cross-Sell" 
+                value={maquinasRecentesTotal.length.toString()} 
+                subtitle="Equipamentos vendidos < 90 dias"
+                icon={<Tractor className="text-amber-400" />}
+                accentColor="amber"
+                href="/maquinas"
+              />
+              <KpiCard 
+                title="Orçamentos Abertos" 
+                value={`R$ ${totalOrcamentos.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`} 
+                subtitle={`${orcamentos.length} orçamentos pendentes`}
+                icon={<ReceiptText className="text-emerald-400" />}
+                accentColor="emerald"
+                href="/orcamentos"
+              />
+              <KpiCard 
+                title="Ações Pendentes" 
+                value={acoesAtivas.length.toString()} 
+                subtitle={`${acoesVencidas.length} vencidas • ${acoesHoje.length} para hoje`}
+                icon={<Zap className="text-violet-400" />}
+                accentColor="violet"
+                href="/acoes"
+              />
+            </div>
+
+            {/* AÇÕES URGENTES DE HOJE */}
+            {acoesUrgentes.length > 0 && (
+              <div className="glass-panel p-5 border border-violet-500/20 bg-violet-950/10 shadow-[0_0_30px_rgba(139,92,246,0.05)]">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <Zap size={18} className="text-violet-400" />
+                    Ações Prioritárias
+                    {acoesVencidas.length > 0 && (
+                      <span className="text-xs font-black bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full border border-red-500/20 animate-pulse">
+                        {acoesVencidas.length} atrasada{acoesVencidas.length > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </h2>
+                  <Link href="/acoes" className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1 transition-colors">
+                    Ver todas <ChevronRight size={14} />
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  {acoesUrgentes.map((a: any) => (
+                    <AcaoCard key={a.id} acao={a} compact onConcluir={() => setConcluirAcao(a)} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
         
@@ -477,6 +532,15 @@ export default function Dashboard() {
         />
       )}
 
+      {/* MODAL CONCLUIR AÇÃO */}
+      {concluirAcao && (
+        <ConcluirAcaoModal
+          acao={concluirAcao}
+          onClose={() => setConcluirAcao(null)}
+          onSave={refreshAcoes}
+        />
+      )}
+
     </div>
   );
 }
@@ -487,6 +551,7 @@ function KpiCard({ title, value, subtitle, icon, accentColor, href }: any) {
     sky: { bg: 'bg-sky-500/10', glow: 'bg-sky-500/50' },
     emerald: { bg: 'bg-emerald-500/10', glow: 'bg-emerald-500/50' },
     amber: { bg: 'bg-amber-500/10', glow: 'bg-amber-500/50' },
+    violet: { bg: 'bg-violet-500/10', glow: 'bg-violet-500/50' },
   };
   const accent = colors[accentColor] || colors.sky;
 

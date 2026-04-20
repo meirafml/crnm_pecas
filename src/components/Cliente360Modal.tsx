@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Loader2, MapPin, Phone, Mail, Tractor, ReceiptText, ShieldCheck, Flame, Skull, AlertTriangle, MessageCircle } from 'lucide-react';
+import { X, Loader2, MapPin, Phone, Mail, Tractor, ReceiptText, ShieldCheck, Flame, Skull, AlertTriangle, MessageCircle, Zap, Clock, CheckCircle2 } from 'lucide-react';
+import AcaoCard from '@/components/AcaoCard';
+import CriarAcaoModal from '@/components/CriarAcaoModal';
+import ConcluirAcaoModal from '@/components/ConcluirAcaoModal';
+import { useData } from '@/contexts/DataContext';
 
 function fixEncoding(str: any) {
   if (typeof str !== 'string' || !str) return str;
@@ -28,6 +32,23 @@ interface Cliente360ModalProps {
 export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }: Cliente360ModalProps) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [abaAtiva, setAbaAtiva] = useState<'orcamentos' | 'maquinas' | 'acoes'>('orcamentos');
+  const [acoesCliente, setAcoesCliente] = useState<any[]>([]);
+  const [loadingAcoes, setLoadingAcoes] = useState(false);
+  const [criarAcaoModal, setCriarAcaoModal] = useState(false);
+  const [concluirAcao, setConcluirAcao] = useState<any>(null);
+
+  const { acoes, refreshAcoes, clientes, orcamentos } = useData();
+
+  // Vendedores para o modal de criar ação
+  const vendedoresUnicos = Array.from(
+    new Map(
+      [...clientes.map((c: any) => ({ codigo: c.VENDEDOR_RESP, nome: c.NOME_VENDEDOR_RESP })),
+       ...orcamentos.map((o: any) => ({ codigo: o.ORC_CODIGO_VENDEDOR, nome: o.ORC_NOME_VENDEDOR }))]
+      .filter(v => v.codigo && v.nome?.trim())
+      .map(v => [v.codigo, { codigo: v.codigo, nome: v.nome?.trim() }])
+    ).values()
+  ).sort((a, b) => a.nome.localeCompare(b.nome));
 
   useEffect(() => {
     async function load() {
@@ -44,6 +65,15 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
     load();
   }, [codigoCliente, lojaCliente]);
 
+  // Filtrar ações desse cliente do contexto global
+  useEffect(() => {
+    const filtradas = acoes.filter((a: any) => 
+      String(a.codigo_cliente) === String(codigoCliente) && 
+      String(a.loja_cliente) === String(lojaCliente)
+    );
+    setAcoesCliente(filtradas);
+  }, [acoes, codigoCliente, lojaCliente]);
+
   if (loading || !data) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -52,7 +82,7 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
     );
   }
 
-  const { cliente, maquinas, orcamentos } = data;
+  const { cliente, maquinas, orcamentos: orcamentosCliente } = data;
   
   // Dados calculados
   const diasSemCompra = cliente.DIAS_SEM_COMPRA || 0;
@@ -68,6 +98,8 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
   } else if (diasSemCompra > 30) {
     statusCor = 'text-amber-400'; statusBg = 'bg-amber-500/10'; statusIcon = <AlertTriangle size={18} />; statusTexto = 'Atenção (Esfriando)';
   }
+
+  const acoesAtivas = acoesCliente.filter((a: any) => ['PENDENTE', 'EM_ANDAMENTO', 'REAGENDADA'].includes(a.status));
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={onClose}>
@@ -101,9 +133,18 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
             </div>
           </div>
           
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors relative z-10">
-            <X size={24} />
-          </button>
+          <div className="flex items-center gap-2 relative z-10">
+            {/* Botão Nova Ação */}
+            <button
+              onClick={() => setCriarAcaoModal(true)}
+              className="px-3 py-2 bg-gradient-to-r from-violet-600 to-sky-600 hover:from-violet-500 hover:to-sky-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-lg shadow-violet-500/20 transition-all"
+            >
+              <Zap size={14} /> Nova Ação
+            </button>
+            <button onClick={onClose} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
         {/* BODY - SCROLLABLE */}
@@ -175,95 +216,189 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
                 </div>
               </div>
 
+              {/* Mini card de Ações ativas */}
+              {acoesAtivas.length > 0 && (
+                <div className="glass-panel p-4 border border-violet-500/20 bg-violet-950/10">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-violet-400 flex items-center gap-2">
+                      <Zap size={14} /> Ações Ativas
+                    </h3>
+                    <span className="text-xs font-black bg-violet-500/20 text-violet-400 px-2 py-0.5 rounded-full">{acoesAtivas.length}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {acoesAtivas.slice(0, 3).map((a: any) => (
+                      <AcaoCard key={a.id} acao={a} compact onConcluir={() => setConcluirAcao(a)} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </div>
 
-            {/* LADO DIREITO: MÁQUINAS E ORÇAMENTOS */}
-            <div className="md:col-span-2 space-y-6">
-              
-              {/* OPORTUNIDADES: ORÇAMENTOS ABERTOS */}
-              <div className="glass-panel overflow-hidden border border-emerald-500/20 bg-emerald-950/20 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
-                 <div className="p-4 border-b border-emerald-500/20 bg-emerald-500/5 flex justify-between items-center">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
-                       <ReceiptText size={18} /> 
-                       Orçamentos Pendentes ({orcamentos.length})
-                    </h3>
-                    {orcamentos.length > 0 && (
-                      <span className="font-bold text-emerald-300 text-lg">
-                        Total R$ {orcamentos.reduce((acc:any, o:any) => acc + o.ORC_VALOR_TOTAL, 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-                      </span>
-                    )}
-                 </div>
-                 <div className="p-0">
-                    {orcamentos.length === 0 ? (
-                      <div className="p-8 text-center text-gray-500">Não há orçamentos em negociação com este cliente.</div>
-                    ) : (
-                      <table className="w-full text-left text-sm text-gray-300">
-                        <thead className="text-[10px] uppercase bg-black/20 text-gray-500">
-                          <tr>
-                            <th className="px-4 py-3 font-semibold">Cód / Descrição</th>
-                            <th className="px-4 py-3 font-semibold text-center">Nº Orçamento</th>
-                            <th className="px-4 py-3 font-semibold text-center">Emissão</th>
-                            <th className="px-4 py-3 font-semibold text-right">Valor R$</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {orcamentos.map((o: any) => (
-                            <tr key={o.id} className="hover:bg-white/[0.02]">
-                              <td className="px-4 py-3 max-w-[200px]">
-                                <div className="font-mono text-xs text-sky-400">{o.CODIGO_PRODUTO_ORC}</div>
-                              </td>
-                              <td className="px-4 py-3 text-center text-gray-400 font-mono text-xs">{o.ORC_NUMERO_ORCAMENTO}</td>
-                              <td className="px-4 py-3 text-center text-gray-500 text-xs">{o.ORC_DATA_EMISSAO_ORCAMENTO || '—'}</td>
-                              <td className="px-4 py-3 text-right font-bold text-emerald-300">
-                                {o.ORC_VALOR_TOTAL?.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                 </div>
-              </div>
+            {/* LADO DIREITO: ABAS */}
+            <div className="md:col-span-2 space-y-4">
 
-              {/* CROSS-SELL: PARQUE DE MÁQUINAS */}
-              <div className="glass-panel overflow-hidden border border-amber-500/20 bg-amber-950/20">
-                 <div className="p-4 border-b border-amber-500/20 bg-amber-500/5 flex justify-between items-center">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
-                       <Tractor size={18} /> 
-                       Parque Instalado ({maquinas.length})
-                    </h3>
-                    <p className="text-xs text-gray-400">Oportunidade para Cross-Sell de Peças</p>
-                 </div>
-                 <div className="p-0">
-                    {maquinas.length === 0 ? (
-                       <div className="p-8 text-center text-gray-500">Nenhum equipamento registrado (Tabela de Maquinas ERP).</div>
-                    ) : (
-                      <table className="w-full text-left text-sm text-gray-300">
-                        <thead className="text-[10px] uppercase bg-black/20 text-gray-500">
-                          <tr>
-                            <th className="px-4 py-3 font-semibold">Modelo / Categoria</th>
-                            <th className="px-4 py-3 font-semibold">Fabricante</th>
-                            <th className="px-4 py-3 font-semibold text-center">Chassi</th>
-                            <th className="px-4 py-3 font-semibold text-center">Emissão NF</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {maquinas.map((m: any) => (
-                            <tr key={m.id} className="hover:bg-white/[0.02]">
-                              <td className="px-4 py-3">
-                                <div className="font-bold text-white">{fixEncoding(m.MODELO) || 'N/A'}</div>
-                                <div className="text-[10px] text-gray-500 uppercase">{fixEncoding(m.CATEGORIA) || 'SEM CATEGORIA'}</div>
-                              </td>
-                              <td className="px-4 py-3 text-gray-300 text-xs">{m.FABRICANTE || '—'}</td>
-                              <td className="px-4 py-3 text-center text-amber-400/80 font-mono text-xs">{m.CHASSI || '—'}</td>
-                              <td className="px-4 py-3 text-center text-gray-500 text-xs">{m.EMISSAO || '—'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                 </div>
+              {/* Abas */}
+              <div className="flex gap-1 bg-white/[0.02] rounded-xl p-1 border border-white/5">
+                <button
+                  onClick={() => setAbaAtiva('orcamentos')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    abaAtiva === 'orcamentos' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  <ReceiptText size={16} /> Orçamentos ({orcamentosCliente.length})
+                </button>
+                <button
+                  onClick={() => setAbaAtiva('maquinas')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    abaAtiva === 'maquinas' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  <Tractor size={16} /> Parque ({maquinas.length})
+                </button>
+                <button
+                  onClick={() => setAbaAtiva('acoes')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    abaAtiva === 'acoes' ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20' : 'text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  <Zap size={16} /> Ações ({acoesCliente.length})
+                  {acoesAtivas.length > 0 && (
+                    <span className="min-w-[18px] h-[18px] flex items-center justify-center text-[9px] font-black bg-violet-500 text-white rounded-full px-1">
+                      {acoesAtivas.length}
+                    </span>
+                  )}
+                </button>
               </div>
+              
+              {/* ABA: ORCAMENTOS */}
+              {abaAtiva === 'orcamentos' && (
+                <div className="glass-panel overflow-hidden border border-emerald-500/20 bg-emerald-950/20 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
+                   <div className="p-4 border-b border-emerald-500/20 bg-emerald-500/5 flex justify-between items-center">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                         <ReceiptText size={18} /> 
+                         Orçamentos Pendentes ({orcamentosCliente.length})
+                      </h3>
+                      {orcamentosCliente.length > 0 && (
+                        <span className="font-bold text-emerald-300 text-lg">
+                          Total R$ {orcamentosCliente.reduce((acc:any, o:any) => acc + o.ORC_VALOR_TOTAL, 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                        </span>
+                      )}
+                   </div>
+                   <div className="p-0">
+                      {orcamentosCliente.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500">Não há orçamentos em negociação com este cliente.</div>
+                      ) : (
+                        <table className="w-full text-left text-sm text-gray-300">
+                          <thead className="text-[10px] uppercase bg-black/20 text-gray-500">
+                            <tr>
+                              <th className="px-4 py-3 font-semibold">Cód / Descrição</th>
+                              <th className="px-4 py-3 font-semibold text-center">Nº Orçamento</th>
+                              <th className="px-4 py-3 font-semibold text-center">Emissão</th>
+                              <th className="px-4 py-3 font-semibold text-right">Valor R$</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {orcamentosCliente.map((o: any) => (
+                              <tr key={o.id} className="hover:bg-white/[0.02]">
+                                <td className="px-4 py-3 max-w-[200px]">
+                                  <div className="font-mono text-xs text-sky-400">{o.CODIGO_PRODUTO_ORC}</div>
+                                </td>
+                                <td className="px-4 py-3 text-center text-gray-400 font-mono text-xs">{o.ORC_NUMERO_ORCAMENTO}</td>
+                                <td className="px-4 py-3 text-center text-gray-500 text-xs">{o.ORC_DATA_EMISSAO_ORCAMENTO || '—'}</td>
+                                <td className="px-4 py-3 text-right font-bold text-emerald-300">
+                                  {o.ORC_VALOR_TOTAL?.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                   </div>
+                </div>
+              )}
+
+              {/* ABA: MAQUINAS */}
+              {abaAtiva === 'maquinas' && (
+                <div className="glass-panel overflow-hidden border border-amber-500/20 bg-amber-950/20">
+                   <div className="p-4 border-b border-amber-500/20 bg-amber-500/5 flex justify-between items-center">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                         <Tractor size={18} /> 
+                         Parque Instalado ({maquinas.length})
+                      </h3>
+                      <p className="text-xs text-gray-400">Oportunidade para Cross-Sell de Peças</p>
+                   </div>
+                   <div className="p-0">
+                      {maquinas.length === 0 ? (
+                         <div className="p-8 text-center text-gray-500">Nenhum equipamento registrado (Tabela de Maquinas ERP).</div>
+                      ) : (
+                        <table className="w-full text-left text-sm text-gray-300">
+                          <thead className="text-[10px] uppercase bg-black/20 text-gray-500">
+                            <tr>
+                              <th className="px-4 py-3 font-semibold">Modelo / Categoria</th>
+                              <th className="px-4 py-3 font-semibold">Fabricante</th>
+                              <th className="px-4 py-3 font-semibold text-center">Chassi</th>
+                              <th className="px-4 py-3 font-semibold text-center">Emissão NF</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {maquinas.map((m: any) => (
+                              <tr key={m.id} className="hover:bg-white/[0.02]">
+                                <td className="px-4 py-3">
+                                  <div className="font-bold text-white">{fixEncoding(m.MODELO) || 'N/A'}</div>
+                                  <div className="text-[10px] text-gray-500 uppercase">{fixEncoding(m.CATEGORIA) || 'SEM CATEGORIA'}</div>
+                                </td>
+                                <td className="px-4 py-3 text-gray-300 text-xs">{m.FABRICANTE || '—'}</td>
+                                <td className="px-4 py-3 text-center text-amber-400/80 font-mono text-xs">{m.CHASSI || '—'}</td>
+                                <td className="px-4 py-3 text-center text-gray-500 text-xs">{m.EMISSAO || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                   </div>
+                </div>
+              )}
+
+              {/* ABA: AÇÕES */}
+              {abaAtiva === 'acoes' && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-violet-400 flex items-center gap-2">
+                      <Zap size={16} /> Histórico de Ações
+                    </h3>
+                    <button
+                      onClick={() => setCriarAcaoModal(true)}
+                      className="px-3 py-1.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 text-xs font-bold rounded-lg border border-violet-500/20 flex items-center gap-1.5 transition-all"
+                    >
+                      <Zap size={12} /> + Nova Ação
+                    </button>
+                  </div>
+
+                  {acoesCliente.length === 0 ? (
+                    <div className="glass-panel p-12 text-center">
+                      <Zap size={40} className="text-gray-700 mx-auto mb-3" />
+                      <p className="text-gray-500 mb-3">Nenhuma ação registrada para este cliente.</p>
+                      <button
+                        onClick={() => setCriarAcaoModal(true)}
+                        className="px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 text-sm font-bold rounded-lg border border-violet-500/20 transition-all"
+                      >
+                        Criar Primeira Ação
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
+                      {acoesCliente.map((a: any) => (
+                        <AcaoCard
+                          key={a.id}
+                          acao={a}
+                          onConcluir={a.status !== 'CONCLUIDA' && a.status !== 'CANCELADA' ? () => setConcluirAcao(a) : undefined}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
             </div>
           </div>
@@ -271,6 +406,26 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
         </div>
 
       </div>
+
+      {/* MODAIS */}
+      {criarAcaoModal && (
+        <CriarAcaoModal
+          clienteCodigo={codigoCliente}
+          clienteLoja={lojaCliente}
+          clienteNome={cliente.NOME_CLIENTE}
+          origemTela="CLIENTE360"
+          vendedores={vendedoresUnicos}
+          onClose={() => setCriarAcaoModal(false)}
+          onSave={refreshAcoes}
+        />
+      )}
+      {concluirAcao && (
+        <ConcluirAcaoModal
+          acao={concluirAcao}
+          onClose={() => setConcluirAcao(null)}
+          onSave={refreshAcoes}
+        />
+      )}
     </div>
   );
 }

@@ -1,13 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Loader2, Flame, Clock, Snowflake, AlertOctagon, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2, Flame, Clock, Snowflake, TrendingUp, Zap } from 'lucide-react';
 import Link from 'next/link';
-
+import CriarAcaoModal from '@/components/CriarAcaoModal';
 import { useData } from '@/contexts/DataContext';
 
 export default function PipelineOrcamentos() {
-  const { orcamentos, loading } = useData();
+  const { orcamentos, loading, clientes, refreshAcoes, acoes } = useData();
+  const [criarAcaoData, setCriarAcaoData] = useState<any>(null);
+
+  // Vendedores para o modal
+  const vendedoresUnicos = Array.from(
+    new Map(
+      [...clientes.map((c: any) => ({ codigo: c.VENDEDOR_RESP, nome: c.NOME_VENDEDOR_RESP })),
+       ...orcamentos.map((o: any) => ({ codigo: o.ORC_CODIGO_VENDEDOR, nome: o.ORC_NOME_VENDEDOR }))]
+      .filter(v => v.codigo && v.nome?.trim())
+      .map(v => [v.codigo, { codigo: v.codigo, nome: v.nome?.trim() }])
+    ).values()
+  ).sort((a, b) => a.nome.localeCompare(b.nome));
+
+  // Contar ações ativas por orçamento
+  const acoesAtivas = acoes.filter((a: any) => ['PENDENTE', 'EM_ANDAMENTO', 'REAGENDADA'].includes(a.status));
+  const acoesPorOrcamento = (numOrc: string) => acoesAtivas.filter((a: any) => a.numero_orcamento === numOrc).length;
 
   // Lógica de Categorização Automática
   const hoje = new Date();
@@ -79,10 +94,19 @@ export default function PipelineOrcamentos() {
 
             {/* Cards da Coluna */}
             <div className="p-3 flex-1 overflow-y-auto space-y-3 custom-scrollbar">
-              {coluna.items.sort((a,b) => b.ORC_VALOR_TOTAL - a.ORC_VALOR_TOTAL).map((o, i) => (
-                <div key={i} className="glass-panel p-4 cursor-pointer hover:border-white/20 transition-all hover:-translate-y-1 group">
+              {coluna.items.sort((a,b) => b.ORC_VALOR_TOTAL - a.ORC_VALOR_TOTAL).map((o, i) => {
+                const numAcoes = acoesPorOrcamento(String(o.ORC_NUMERO_ORCAMENTO));
+                return (
+                <div key={i} className="glass-panel p-4 cursor-pointer hover:border-white/20 transition-all hover:-translate-y-1 group relative">
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-bold bg-white/10 text-gray-300 px-2 py-0.5 rounded uppercase">{o.ORC_NUMERO_ORCAMENTO}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold bg-white/10 text-gray-300 px-2 py-0.5 rounded uppercase">{o.ORC_NUMERO_ORCAMENTO}</span>
+                      {numAcoes > 0 && (
+                        <span className="flex items-center gap-0.5 text-[9px] font-bold bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded-full border border-violet-500/20">
+                          <Zap size={8} /> {numAcoes}
+                        </span>
+                      )}
+                    </div>
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${coluna.bg} ${coluna.cor}`}>
                       {o.diasAberto}d
                     </span>
@@ -99,12 +123,31 @@ export default function PipelineOrcamentos() {
                       <span className="w-1.5 h-1.5 rounded-full bg-gray-500 shrink-0"></span>
                       <span className="truncate">{o.ORC_NOME_VENDEDOR?.split(' ')[0] || 'Vendedor'}</span>
                     </div>
-                    <div className="font-bold text-emerald-300 text-sm shrink-0">
-                      R$ {o.ORC_VALOR_TOTAL.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                    <div className="flex items-center gap-2">
+                      {/* Botão Criar Ação */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCriarAcaoData({
+                            clienteCodigo: o.CODIGO_CLIENTE,
+                            clienteLoja: o.LOJA_CLIENTE,
+                            clienteNome: o.CLIENTE_ORC,
+                            numeroOrcamento: String(o.ORC_NUMERO_ORCAMENTO),
+                            tipoSugerido: 'FOLLOW_UP_ORCAMENTO',
+                          });
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-lg transition-all hover:bg-violet-500/20"
+                        title="Criar ação para este orçamento"
+                      >
+                        <Zap size={12} />
+                      </button>
+                      <div className="font-bold text-emerald-300 text-sm shrink-0">
+                        R$ {o.ORC_VALOR_TOTAL.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                      </div>
                     </div>
                   </div>
                 </div>
-              ))}
+              )})}
               
               {coluna.items.length === 0 && (
                 <div className="h-24 flex items-center justify-center border-2 border-dashed border-white/5 rounded-lg text-sm text-gray-600 font-medium italic">
@@ -132,6 +175,21 @@ export default function PipelineOrcamentos() {
           background: rgba(255, 255, 255, 0.2);
         }
       `}} />
+
+      {/* MODAL CRIAR AÇÃO */}
+      {criarAcaoData && (
+        <CriarAcaoModal
+          clienteCodigo={criarAcaoData.clienteCodigo}
+          clienteLoja={criarAcaoData.clienteLoja}
+          clienteNome={criarAcaoData.clienteNome}
+          numeroOrcamento={criarAcaoData.numeroOrcamento}
+          tipoSugerido={criarAcaoData.tipoSugerido}
+          origemTela="PIPELINE"
+          vendedores={vendedoresUnicos}
+          onClose={() => setCriarAcaoData(null)}
+          onSave={refreshAcoes}
+        />
+      )}
     </div>
   );
 }

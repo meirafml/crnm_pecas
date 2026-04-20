@@ -1,15 +1,40 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Loader2, ShieldCheck, AlertTriangle, Flame, Skull, MapPin } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2, ShieldCheck, AlertTriangle, Flame, Skull, MapPin, Zap } from 'lucide-react';
 import Link from 'next/link';
 import Cliente360Modal from '@/components/Cliente360Modal';
-
+import CriarAcaoModal from '@/components/CriarAcaoModal';
 import { useData } from '@/contexts/DataContext';
 
 export default function PipelineCarteira() {
-  const { clientes, loading } = useData();
+  const { clientes, loading, orcamentos, refreshAcoes, acoes } = useData();
   const [cliente360, setCliente360] = useState<{codigo: string, loja: string} | null>(null);
+  const [criarAcaoData, setCriarAcaoData] = useState<any>(null);
+
+  // Vendedores para o modal
+  const vendedoresUnicos = Array.from(
+    new Map(
+      [...clientes.map((c: any) => ({ codigo: c.VENDEDOR_RESP, nome: c.NOME_VENDEDOR_RESP })),
+       ...orcamentos.map((o: any) => ({ codigo: o.ORC_CODIGO_VENDEDOR, nome: o.ORC_NOME_VENDEDOR }))]
+      .filter(v => v.codigo && v.nome?.trim())
+      .map(v => [v.codigo, { codigo: v.codigo, nome: v.nome?.trim() }])
+    ).values()
+  ).sort((a, b) => a.nome.localeCompare(b.nome));
+
+  // Contar ações ativas por cliente
+  const acoesAtivas = acoes.filter((a: any) => ['PENDENTE', 'EM_ANDAMENTO', 'REAGENDADA'].includes(a.status));
+  const acoesPorCliente = (cod: string, loja: string) => acoesAtivas.filter((a: any) => String(a.codigo_cliente) === String(cod) && String(a.loja_cliente) === String(loja)).length;
+
+  // Sugestão de tipo baseado na coluna
+  const tipoSugerido = (chave: string) => {
+    switch (chave) {
+      case 'atencao': return 'LIGAR';
+      case 'risco': return 'VISITA';
+      case 'churn': return 'LIGAR';
+      default: return 'LIGAR';
+    }
+  };
 
   // Lógica de Categorização Automática (Prevenção de Evasão)
   const colunas = {
@@ -69,7 +94,9 @@ export default function PipelineCarteira() {
 
             {/* Cards da Coluna */}
             <div className="p-3 flex-1 overflow-y-auto space-y-3 custom-scrollbar">
-              {coluna.items.sort((a,b) => (b.DIAS_SEM_COMPRA || 0) - (a.DIAS_SEM_COMPRA || 0)).map((c, i) => (
+              {coluna.items.sort((a,b) => (b.DIAS_SEM_COMPRA || 0) - (a.DIAS_SEM_COMPRA || 0)).map((c, i) => {
+                const numAcoes = acoesPorCliente(c.CODIGO_CLIENTE, c.LOJA_CLIENTE);
+                return (
                 <div 
                   key={i} 
                   onClick={() => setCliente360({codigo: c.CODIGO_CLIENTE, loja: c.LOJA_CLIENTE})}
@@ -78,9 +105,16 @@ export default function PipelineCarteira() {
                   <div className={`absolute top-0 left-0 w-1 h-full ${coluna.bg.replace('10', '50')} opacity-50`} />
                   
                   <div className="flex justify-between items-start mb-2 pl-2">
-                    <span className="text-[10px] font-bold bg-white/10 text-gray-400 px-2 py-0.5 rounded uppercase flex gap-1 items-center">
-                      Lj: {c.LOJA_CLIENTE}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold bg-white/10 text-gray-400 px-2 py-0.5 rounded uppercase flex gap-1 items-center">
+                        Lj: {c.LOJA_CLIENTE}
+                      </span>
+                      {numAcoes > 0 && (
+                        <span className="flex items-center gap-0.5 text-[9px] font-bold bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded-full border border-violet-500/20">
+                          <Zap size={8} /> {numAcoes}
+                        </span>
+                      )}
+                    </div>
                     <span className={`text-[11px] font-black px-2 py-0.5 rounded-sm shadow-sm ${coluna.bg} ${coluna.cor}`}>
                       {c.DIAS_SEM_COMPRA || 0} DIAS
                     </span>
@@ -98,9 +132,28 @@ export default function PipelineCarteira() {
                     <div className="text-[10px] uppercase text-gray-500 font-medium">
                       Vendedor: <span className="text-gray-300">{c.NOME_VENDEDOR_RESP || 'Indefinido'}</span>
                     </div>
+                    {/* Botão Criar Ação */}
+                    {chave !== 'saudavel' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCriarAcaoData({
+                            clienteCodigo: c.CODIGO_CLIENTE,
+                            clienteLoja: c.LOJA_CLIENTE,
+                            clienteNome: c.NOME_CLIENTE,
+                            tipoSugerido: tipoSugerido(chave),
+                            vendedorCodigo: c.VENDEDOR_RESP,
+                          });
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-lg transition-all hover:bg-violet-500/20"
+                        title="Criar ação para este cliente"
+                      >
+                        <Zap size={12} />
+                      </button>
+                    )}
                   </div>
                 </div>
-              ))}
+              )})}
               
               {coluna.items.length === 0 && (
                 <div className="h-24 flex items-center justify-center border-2 border-dashed border-white/5 rounded-lg text-sm text-gray-600 font-medium italic">
@@ -135,6 +188,20 @@ export default function PipelineCarteira() {
           codigoCliente={cliente360.codigo} 
           lojaCliente={cliente360.loja} 
           onClose={() => setCliente360(null)} 
+        />
+      )}
+
+      {/* MODAL CRIAR AÇÃO */}
+      {criarAcaoData && (
+        <CriarAcaoModal
+          clienteCodigo={criarAcaoData.clienteCodigo}
+          clienteLoja={criarAcaoData.clienteLoja}
+          clienteNome={criarAcaoData.clienteNome}
+          tipoSugerido={criarAcaoData.tipoSugerido}
+          origemTela="CARTEIRA"
+          vendedores={vendedoresUnicos}
+          onClose={() => setCriarAcaoData(null)}
+          onSave={refreshAcoes}
         />
       )}
     </div>
