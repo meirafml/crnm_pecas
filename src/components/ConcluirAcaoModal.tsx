@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { X, CheckCircle2, XCircle, Target, CalendarClock, PhoneOff } from 'lucide-react';
+import { X, CheckCircle2, XCircle, Target, CalendarClock, PhoneOff, Trash2, Tractor } from 'lucide-react';
 
 const RESULTADOS = [
   { value: 'CLIENTE_INTERESSADO', label: 'Cliente Interessado', icon: <CheckCircle2 size={16} />, color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', desc: 'Demonstrou interesse, próximos passos definidos' },
   { value: 'VENDA_REALIZADA', label: 'Venda Realizada', icon: <Target size={16} />, color: 'bg-sky-500/20 text-sky-400 border-sky-500/30', desc: 'Negócio fechado com sucesso!' },
   { value: 'SEM_INTERESSE', label: 'Sem Interesse', icon: <XCircle size={16} />, color: 'bg-red-500/20 text-red-400 border-red-500/30', desc: 'Cliente declinou a oferta' },
+  { value: 'SEM_MAQUINA', label: 'Não tem mais a máquina', icon: <Trash2 size={16} />, color: 'bg-orange-500/20 text-orange-400 border-orange-500/30', desc: 'Removerá o cliente da sua carteira' },
+  { value: 'MAQUINA_OUTRA_MARCA', label: 'Máquina de Outra Marca', icon: <Tractor size={16} />, color: 'bg-purple-500/20 text-purple-400 border-purple-500/30', desc: 'Cliente usa concorrente' },
   { value: 'REAGENDAR', label: 'Reagendar', icon: <CalendarClock size={16} />, color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', desc: 'Precisa de novo contato em outra data' },
   { value: 'SEM_CONTATO', label: 'Sem Contato', icon: <PhoneOff size={16} />, color: 'bg-gray-500/20 text-gray-400 border-gray-500/30', desc: 'Não conseguiu falar com o cliente' },
 ];

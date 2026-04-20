@@ -39,7 +39,7 @@ export async function PATCH(
       updates.data_conclusao = null;
     }
 
-    const { data, error } = await supabase
+    const { data: updatedAcao, error } = await supabase
       .from('crm_acoes')
       .update(updates)
       .eq('id', id)
@@ -48,7 +48,15 @@ export async function PATCH(
 
     if (error) throw error;
 
-    return NextResponse.json(data);
+    // Se o resultado for SEM_MAQUINA, removemos da carteira do vendedor
+    if (body.resultado === 'SEM_MAQUINA' && updatedAcao?.codigo_cliente) {
+      await supabase
+        .from('crm_clientes')
+        .update({ VENDEDOR_RESP: null, NOME_VENDEDOR_RESP: null })
+        .eq('CODIGO_CLIENTE', updatedAcao.codigo_cliente);
+    }
+
+    return NextResponse.json(updatedAcao);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
