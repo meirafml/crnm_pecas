@@ -5,6 +5,8 @@ import { Zap, Clock, CheckCircle2, XCircle, RotateCcw, Filter, Plus, BarChart3, 
 import AcaoCard from '@/components/AcaoCard';
 import CriarAcaoModal from '@/components/CriarAcaoModal';
 import ConcluirAcaoModal from '@/components/ConcluirAcaoModal';
+import EditarAcaoModal from '@/components/EditarAcaoModal';
+import Cliente360Modal from '@/components/Cliente360Modal';
 import { useData } from '@/contexts/DataContext';
 
 export default function PainelAcoes() {
@@ -14,7 +16,10 @@ export default function PainelAcoes() {
   const [filtroPrioridade, setFiltroPrioridade] = useState('');
   const [criarModal, setCriarModal] = useState(false);
   const [concluirAcao, setConcluirAcao] = useState<any>(null);
+  const [editarAcao, setEditarAcao] = useState<any>(null);
   const [visao, setVisao] = useState<'kanban' | 'lista'>('kanban');
+  const [draggedAcaoId, setDraggedAcaoId] = useState<number | string | null>(null);
+  const [cliente360, setCliente360] = useState<{codigo: string, loja: string} | null>(null);
 
   // Extrair vendedores únicos dos dados já carregados
   const vendedoresUnicos = Array.from(
@@ -88,6 +93,30 @@ export default function PainelAcoes() {
       </div>
     );
   }
+
+  const handleDrop = async (e: React.DragEvent, novoStatus: string) => {
+    e.preventDefault();
+    if (!draggedAcaoId) return;
+
+    try {
+      const res = await fetch(`/api/acoes/${draggedAcaoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: novoStatus }),
+      });
+      if (res.ok) {
+        refreshAcoes();
+      }
+    } catch (err) {
+      console.error('Erro ao mover ação', err);
+    } finally {
+      setDraggedAcaoId(null);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 h-full flex flex-col">
@@ -188,7 +217,12 @@ export default function PainelAcoes() {
       {visao === 'kanban' ? (
         <div className="flex gap-6 overflow-x-auto pb-4 pt-1 flex-1 min-h-[400px] pr-8 after:content-[''] after:w-4 after:shrink-0">
           {Object.entries(kanbanColunas).map(([chave, coluna]) => (
-            <div key={chave} className="flex-none w-80 flex flex-col h-full bg-[#ffffff02] rounded-xl border border-white/5">
+            <div 
+              key={chave} 
+              className="flex-none w-80 flex flex-col h-full bg-[#ffffff02] rounded-xl border border-white/5 transition-colors duration-200 hover:bg-[#ffffff05]"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, chave)}
+            >
               <div className={`p-4 border-b ${coluna.border} ${coluna.bg} rounded-t-xl shrink-0`}>
                 <div className={`flex items-center justify-between font-bold ${coluna.cor} uppercase tracking-wider text-sm`}>
                   <div className="flex items-center gap-2">{coluna.icone} {coluna.titulo}</div>
@@ -206,6 +240,13 @@ export default function PainelAcoes() {
                     key={acao.id}
                     acao={acao}
                     onConcluir={acao.status !== 'CONCLUIDA' && acao.status !== 'CANCELADA' ? () => setConcluirAcao(acao) : undefined}
+                    onEdit={() => setEditarAcao(acao)}
+                    onClickCliente={acao.codigo_cliente ? (cod, loja) => setCliente360({ codigo: cod, loja }) : undefined}
+                    onDragStart={(e) => {
+                      setDraggedAcaoId(acao.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', acao.id.toString());
+                    }}
                   />
                 ))}
                 {coluna.items.length === 0 && (
@@ -233,6 +274,8 @@ export default function PainelAcoes() {
                   key={acao.id}
                   acao={acao}
                   onConcluir={acao.status !== 'CONCLUIDA' && acao.status !== 'CANCELADA' ? () => setConcluirAcao(acao) : undefined}
+                  onEdit={() => setEditarAcao(acao)}
+                  onClickCliente={acao.codigo_cliente ? (cod, loja) => setCliente360({ codigo: cod, loja }) : undefined}
                 />
               ))}
             </div>
@@ -276,6 +319,21 @@ export default function PainelAcoes() {
         <ConcluirAcaoModal
           acao={concluirAcao}
           onClose={() => setConcluirAcao(null)}
+          onSave={refreshAcoes}
+        />
+      )}
+      {cliente360 && (
+        <Cliente360Modal 
+          codigoCliente={cliente360.codigo} 
+          lojaCliente={cliente360.loja} 
+          onClose={() => setCliente360(null)} 
+        />
+      )}
+      {editarAcao && (
+        <EditarAcaoModal
+          acao={editarAcao}
+          vendedores={vendedoresUnicos}
+          onClose={() => setEditarAcao(null)}
           onSave={refreshAcoes}
         />
       )}

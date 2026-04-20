@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useDeferredValue } from 'react';
 import { Loader2, Search, Calendar, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import Cliente360Modal from '@/components/Cliente360Modal';
 
 import { useData } from '@/contexts/DataContext';
 
@@ -44,6 +45,7 @@ export default function OrcamentosPage() {
   const [ordemFiltro, setOrdemFiltro] = useState(''); // 'maior' | 'menor' | ''
   const [statusFiltro, setStatusFiltro] = useState('');
   const [sortConfig, setSortConfig] = useState<{key: string, direction: 'asc' | 'desc'} | null>(null);
+  const [cliente360, setCliente360] = useState<{ codigo: string, loja: string } | null>(null);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -178,9 +180,9 @@ export default function OrcamentosPage() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {itensPaginados.map((o) => (
-                  <tr key={o.id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={o.id} className="hover:bg-white/[0.02] transition-colors cursor-pointer group" onClick={() => setCliente360({ codigo: o.CODIGO_CLIENTE, loja: o.LOJA_CLIENTE })}>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-white">{o.CLIENTE_ORC || '—'}</div>
+                      <div className="font-medium text-white group-hover:text-emerald-300 transition-colors">{o.CLIENTE_ORC || '—'}</div>
                       <div className="text-xs text-gray-400 mt-1 uppercase flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full bg-amber-400/50 inline-block"></span>
                         {o.ORC_NOME_VENDEDOR}
@@ -253,6 +255,14 @@ export default function OrcamentosPage() {
             </div>
           )}
         </div>
+      )}
+
+      {cliente360 && (
+        <Cliente360Modal
+          codigoCliente={cliente360.codigo}
+          lojaCliente={cliente360.loja}
+          onClose={() => setCliente360(null)}
+        />
       )}
     </div>
   );

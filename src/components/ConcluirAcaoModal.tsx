@@ -37,16 +37,21 @@ export default function ConcluirAcaoModal({ acao, onClose, onSave }: ConcluirAca
     const isSemContato = resultado === 'SEM_CONTATO';
 
     try {
+      let finalStatus = 'CONCLUIDA';
+      if (['CLIENTE_INTERESSADO', 'REAGENDAR', 'SEM_CONTATO'].includes(resultado)) {
+        finalStatus = 'EM_ANDAMENTO';
+      }
+
       const body: any = {
         resultado,
         observacoes: observacoes.trim() || null,
-        status: isReagendar ? 'REAGENDADA' : isSemContato ? 'PENDENTE' : 'CONCLUIDA',
+        status: finalStatus,
       };
 
       if (isReagendar) {
         body.data_vencimento = novaData;
-        body.status = 'PENDENTE';
       }
+
 
       const res = await fetch(`/api/acoes/${acao.id}`, {
         method: 'PATCH',

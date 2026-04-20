@@ -1,6 +1,6 @@
 'use client';
 
-import { Phone, MessageCircle, Mail, MapPin, FileText, Package, HelpCircle, CheckCircle2, Clock, AlertTriangle, XCircle, RotateCcw } from 'lucide-react';
+import { Phone, MessageCircle, Mail, MapPin, FileText, Package, HelpCircle, CheckCircle2, Clock, AlertTriangle, XCircle, RotateCcw, Edit2 } from 'lucide-react';
 
 const TIPO_ICONS: Record<string, React.ReactNode> = {
   LIGAR: <Phone size={14} />,
@@ -40,10 +40,13 @@ const STATUS_ICONS: Record<string, { icon: React.ReactNode; color: string }> = {
 interface AcaoCardProps {
   acao: any;
   onConcluir?: () => void;
+  onEdit?: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
+  onClickCliente?: (codigo: string, loja: string) => void;
   compact?: boolean;
 }
 
-export default function AcaoCard({ acao, onConcluir, compact = false }: AcaoCardProps) {
+export default function AcaoCard({ acao, onConcluir, onEdit, onDragStart, onClickCliente, compact = false }: AcaoCardProps) {
   const prio = PRIORIDADE_STYLES[acao.prioridade] || PRIORIDADE_STYLES.MEDIA;
   const statusInfo = STATUS_ICONS[acao.status] || STATUS_ICONS.PENDENTE;
   const tipoIcon = TIPO_ICONS[acao.tipo] || TIPO_ICONS.OUTRO;
@@ -71,7 +74,14 @@ export default function AcaoCard({ acao, onConcluir, compact = false }: AcaoCard
         <span className={`shrink-0 ${tipoColor}`}>{tipoIcon}</span>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-gray-200 truncate">{acao.titulo}</p>
-          <p className="text-[10px] text-gray-500 truncate">{acao.nome_cliente || 'S/ cliente'}</p>
+          <p 
+            className={`text-[10px] truncate transition-colors ${acao.codigo_cliente && onClickCliente ? 'text-sky-400 hover:text-sky-300 font-medium cursor-pointer underline decoration-sky-500/30' : 'text-gray-500'}`}
+            onClick={acao.codigo_cliente && onClickCliente ? (e) => { e.stopPropagation(); onClickCliente(acao.codigo_cliente, acao.loja_cliente); } : undefined}
+            onMouseDown={acao.codigo_cliente && onClickCliente ? (e) => e.stopPropagation() : undefined}
+            title={acao.codigo_cliente && onClickCliente ? "Ver detalhes do cliente" : ""}
+          >
+            {acao.nome_cliente || 'S/ cliente'}
+          </p>
         </div>
         <div className="text-right shrink-0">
           <p className={`text-[10px] font-bold ${vencida ? 'text-red-400' : venceHoje ? 'text-amber-400' : 'text-gray-500'}`}>
@@ -91,9 +101,13 @@ export default function AcaoCard({ acao, onConcluir, compact = false }: AcaoCard
   }
 
   return (
-    <div className={`glass-panel p-4 transition-all hover:border-white/20 group relative overflow-hidden ${
-      vencida ? 'border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.05)]' : ''
-    }`}>
+    <div 
+      className={`glass-panel p-4 transition-all hover:border-white/20 group relative overflow-hidden ${
+        onDragStart ? 'cursor-default active:cursor-grabbing' : ''
+      } ${vencida ? 'border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.05)]' : ''}`}
+      draggable={!!onDragStart}
+      onDragStart={onDragStart}
+    >
       {/* Indicador lateral de prioridade */}
       <div className={`absolute top-0 left-0 w-1 h-full ${prio.bg.replace('/10', '/40')} rounded-l-2xl`} />
 
@@ -116,7 +130,12 @@ export default function AcaoCard({ acao, onConcluir, compact = false }: AcaoCard
       </div>
 
       {/* Cliente */}
-      <h4 className="font-semibold text-gray-100 text-sm leading-tight mb-1 pl-2 group-hover:text-white">
+      <h4 
+        onClick={acao.codigo_cliente && onClickCliente ? (e) => { e.stopPropagation(); onClickCliente(acao.codigo_cliente, acao.loja_cliente); } : undefined}
+        onMouseDown={acao.codigo_cliente && onClickCliente ? (e) => e.stopPropagation() : undefined}
+        className={`font-semibold text-sm leading-tight mb-1 pl-2 transition-colors ${acao.codigo_cliente && onClickCliente ? 'text-sky-400 hover:text-sky-300 cursor-pointer underline decoration-sky-500/30 relative z-10' : 'text-gray-100 group-hover:text-white'}`}
+        title={acao.codigo_cliente && onClickCliente ? "Ver detalhes do cliente" : ""}
+      >
         {acao.nome_cliente || 'Sem Cliente'}
       </h4>
 
@@ -160,14 +179,25 @@ export default function AcaoCard({ acao, onConcluir, compact = false }: AcaoCard
             {acao.nome_vendedor?.split(' ')[0] || 'S/ vendedor'}
           </span>
         </div>
-        {onConcluir && acao.status !== 'CONCLUIDA' && acao.status !== 'CANCELADA' && (
-          <button
-            onClick={onConcluir}
-            className="px-3 py-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg transition-all hover:bg-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/10"
-          >
-            ✓ Concluir
-          </button>
-        )}
+        <div className="flex gap-2">
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="p-1.5 text-gray-400 hover:text-white bg-white/5 border border-white/10 rounded-lg transition-all hover:bg-white/10"
+              title="Editar Ação"
+            >
+              <Edit2 size={12} />
+            </button>
+          )}
+          {onConcluir && acao.status !== 'CONCLUIDA' && acao.status !== 'CANCELADA' && (
+            <button
+              onClick={onConcluir}
+              className="px-3 py-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg transition-all hover:bg-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/10"
+            >
+              ✓ Concluir
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

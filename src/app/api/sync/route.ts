@@ -137,8 +137,39 @@ export async function POST(request: Request) {
 
     const payload = await request.json();
 
+    // [Shield de Substituição (Sync Override)]
+    // Buscar solicitações de contato manuais PENDENTES para prevalecerem sobre a carga ERP
+    const { data: pendentes, error: errPendentes } = await supabase
+      .from('crm_solicitacoes_alteracao')
+      .select('*')
+      .eq('status', 'PENDENTE');
+
+    const overrides = new Map();
+    if (!errPendentes && pendentes) {
+      for (const p of pendentes) {
+        // Usa o codigo_cliente_loja_cliente como chave para identificar quem precisa de escudo
+        overrides.set(`${p.codigo_cliente}_${p.loja_cliente}`, p);
+      }
+    }
+
     // Processar cada entidade com seu sanitizador específico
-    const clientes = (payload.Clientes || []).map((c: any) => processCliente(c));
+    const clientes = (payload.Clientes || []).map((c: any) => {
+      const parsed = processCliente(c);
+      
+      // Aplicar o escudo de substituição se houver pendência
+      const shieldKey = `${parsed.CODIGO_CLIENTE}_${parsed.LOJA_CLIENTE}`;
+      if (overrides.has(shieldKey)) {
+        const shield = overrides.get(shieldKey);
+        if (shield.email_novo) {
+          parsed.EMAIL = shield.email_novo;
+        }
+        if (shield.telefone_novo) {
+          parsed.TELEFONE = shield.telefone_novo;
+          parsed.CELULAR_WHATSAPP_CONTATO = shield.telefone_novo;
+        }
+      }
+      return parsed;
+    });
     const orcamentos = (payload.Orcamentos || []).map((o: any) => processOrcamento(o));
     const maquinas = (payload.Maquinas || []).map((m: any, i: number) => processMaquina(m, i));
 

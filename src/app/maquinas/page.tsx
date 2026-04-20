@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Loader2, Search, MapPin, X } from 'lucide-react';
+import Cliente360Modal from '@/components/Cliente360Modal';
 
 import { useData } from '@/contexts/DataContext';
 
@@ -30,6 +31,7 @@ export default function MaquinasPage() {
   const [fabricanteFiltro, setFabricanteFiltro] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState('');
   const [somenteRecentes, setSomenteRecentes] = useState(false);
+  const [cliente360, setCliente360] = useState<{ codigo: string, loja: string } | null>(null);
 
   const filtrados = maquinas.filter(m => {
     const term = busca.toLowerCase();
@@ -148,9 +150,9 @@ export default function MaquinasPage() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {filtrados.map((m) => (
-                  <tr key={m.id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={m.id} className="hover:bg-white/[0.02] transition-colors cursor-pointer group" onClick={() => setCliente360({ codigo: m.COD_CLIENTE || m.CODIGO_CLIENTE, loja: m.LOJA_CLIENTE })}>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-white">{fixEncoding(m.MODELO)}</div>
+                      <div className="font-medium text-white group-hover:text-amber-300 transition-colors">{fixEncoding(m.MODELO)}</div>
                       <div className="text-xs text-amber-300 font-mono mt-1">Chassi: {m.CHASSI || '—'}</div>
                       <div className="text-[10px] text-gray-500 mt-0.5">{m.FABRICANTE} • {fixEncoding(m.ESTADO)} • {fixEncoding(m.CATEGORIA)}</div>
                     </td>
@@ -194,6 +196,14 @@ export default function MaquinasPage() {
             </table>
           </div>
         </div>
+      )}
+
+      {cliente360 && (
+        <Cliente360Modal
+          codigoCliente={cliente360.codigo}
+          lojaCliente={cliente360.loja}
+          onClose={() => setCliente360(null)}
+        />
       )}
     </div>
   );

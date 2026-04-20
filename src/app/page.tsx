@@ -226,7 +226,13 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-2">
                   {acoesUrgentes.map((a: any) => (
-                    <AcaoCard key={a.id} acao={a} compact onConcluir={() => setConcluirAcao(a)} />
+                    <AcaoCard 
+                      key={a.id} 
+                      acao={a} 
+                      compact 
+                      onConcluir={() => setConcluirAcao(a)} 
+                      onClickCliente={a.codigo_cliente ? (cod, loja) => setClienteModal({codigo: cod, loja}) : undefined}
+                    />
                   ))}
                 </div>
               </div>

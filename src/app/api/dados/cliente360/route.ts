@@ -19,14 +19,19 @@ export async function GET(request: Request) {
     }
 
     // Busca o Cliente Principal
-    const { data: cliente, error: errCli } = await supabase
+    const { data: clienteData, error: errCli } = await supabase
       .from('crm_clientes')
       .select('*')
       .eq('CODIGO_CLIENTE', codigo_cliente)
       .eq('LOJA_CLIENTE', loja_cliente)
-      .single();
+      .limit(1);
 
     if (errCli) throw errCli;
+    if (!clienteData || clienteData.length === 0) {
+      return NextResponse.json({ error: 'Cliente não encontrado na base.' }, { status: 404 });
+    }
+    
+    const cliente = clienteData[0];
 
     // Busca as Máquinas desse cliente (Venda Cruzada)
     const { data: maquinas, error: errMaq } = await supabase

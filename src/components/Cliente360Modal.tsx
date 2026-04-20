@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Loader2, MapPin, Phone, Mail, Tractor, ReceiptText, ShieldCheck, Flame, Skull, AlertTriangle, MessageCircle, Zap, Clock, CheckCircle2 } from 'lucide-react';
+import { X, Loader2, MapPin, Phone, Mail, Tractor, ReceiptText, ShieldCheck, Flame, Skull, AlertTriangle, MessageCircle, Zap, Clock, CheckCircle2, Edit2, Save } from 'lucide-react';
 import AcaoCard from '@/components/AcaoCard';
 import CriarAcaoModal from '@/components/CriarAcaoModal';
 import ConcluirAcaoModal from '@/components/ConcluirAcaoModal';
@@ -32,11 +32,18 @@ interface Cliente360ModalProps {
 export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }: Cliente360ModalProps) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<'orcamentos' | 'maquinas' | 'acoes'>('orcamentos');
   const [acoesCliente, setAcoesCliente] = useState<any[]>([]);
   const [loadingAcoes, setLoadingAcoes] = useState(false);
   const [criarAcaoModal, setCriarAcaoModal] = useState(false);
   const [concluirAcao, setConcluirAcao] = useState<any>(null);
+
+  // Estados de edição de contato
+  const [editandoContato, setEditandoContato] = useState(false);
+  const [novoTelefone, setNovoTelefone] = useState('');
+  const [novoEmail, setNovoEmail] = useState('');
+  const [salvandoContato, setSalvandoContato] = useState(false);
 
   const { acoes, refreshAcoes, clientes, orcamentos } = useData();
 
@@ -53,12 +60,17 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
   useEffect(() => {
     async function load() {
       setLoading(true);
+      setErrorMsg(null);
       try {
         const res = await fetch(`/api/dados/cliente360?codigo_cliente=${codigoCliente}&loja_cliente=${lojaCliente}`);
         const json = await res.json();
+        if (!res.ok || json.error) {
+          throw new Error(json.error || 'Erro ao carregar os dados do cliente.');
+        }
         setData(json);
-      } catch (e) {
+      } catch (e: any) {
         console.error(e);
+        setErrorMsg(e.message);
       }
       setLoading(false);
     }
@@ -74,7 +86,7 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
     setAcoesCliente(filtradas);
   }, [acoes, codigoCliente, lojaCliente]);
 
-  if (loading || !data) {
+  if (loading) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
         <Loader2 size={48} className="text-sky-400 animate-spin" />
@@ -82,8 +94,82 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
     );
   }
 
+  if (errorMsg || !data?.cliente) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onClick={onClose}>
+        <div className="bg-[#0b101a] border border-red-500/20 w-full max-w-lg rounded-2xl shadow-2xl p-6 text-center" onClick={e => e.stopPropagation()}>
+          <div className="w-16 h-16 bg-red-500/10 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+            <X size={32} />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">Erro ao carregar cliente</h2>
+          <p className="text-gray-400 mb-6">{errorMsg || 'Cliente não encontrado ou dados inconsistentes na base de ERP.'}</p>
+          <button 
+            onClick={onClose}
+            className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const handleSalvarContato = async () => {
+    if (!data?.cliente) return;
+    const cliente = data.cliente;
+    setSalvandoContato(true);
+    try {
+      const payload = {
+        codigo_cliente: codigoCliente,
+        loja_cliente: lojaCliente,
+        nome_cliente: cliente.NOME_CLIENTE,
+        email_antigo: cliente.EMAIL,
+        email_novo: novoEmail !== cliente.EMAIL ? novoEmail : undefined,
+        telefone_antigo: cliente.TELEFONE || cliente.CELULAR_WHATSAPP_CONTATO,
+        telefone_novo: novoTelefone !== (cliente.TELEFONE || cliente.CELULAR_WHATSAPP_CONTATO) ? novoTelefone : undefined,
+        vendedor_solicitante: cliente.NOME_VENDEDOR_RESP || 'SISTEMA',
+      };
+
+      if (!payload.email_novo && !payload.telefone_novo) {
+        setEditandoContato(false);
+        setSalvandoContato(false);
+        return;
+      }
+
+      const res = await fetch('/api/clientes/atualizar-contato', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error('Falha ao registrar alteração de contato.');
+
+      const updated = { ...data };
+      if (payload.email_novo !== undefined) updated.cliente.EMAIL = novoEmail;
+      if (payload.telefone_novo !== undefined) {
+        updated.cliente.TELEFONE = novoTelefone;
+        updated.cliente.CELULAR_WHATSAPP_CONTATO = novoTelefone;
+      }
+      setData(updated);
+      setEditandoContato(false);
+    } catch(err) {
+      console.error(err);
+      alert('Erro ao salvar contato provisório.');
+    }
+    setSalvandoContato(false);
+  };
+
+  // Preenche dados ao entrar em modo de edição
+  useEffect(() => {
+    const cliente = data?.cliente;
+    if (editandoContato && cliente) {
+      setNovoTelefone(cliente.TELEFONE || cliente.CELULAR_WHATSAPP_CONTATO || '');
+      setNovoEmail(cliente.EMAIL || '');
+    }
+  }, [editandoContato, data]);
+
   const { cliente, maquinas, orcamentos: orcamentosCliente } = data;
-  
+
   // Dados calculados
   const diasSemCompra = cliente.DIAS_SEM_COMPRA || 0;
   let statusCor = 'text-emerald-400';
@@ -156,24 +242,63 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
             <div className="space-y-6">
               
               {/* Card Contato */}
-              <div className="glass-panel p-5 space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-2 border-b border-white/5 pb-2">Contato e Endereço</h3>
+              <div className="glass-panel p-5 space-y-4 relative">
+                <div className="flex justify-between items-center mb-2 border-b border-white/5 pb-2">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500">Contato e Endereço</h3>
+                  {!editandoContato ? (
+                    <button 
+                      onClick={() => setEditandoContato(true)}
+                      className="text-gray-500 hover:text-sky-400 transition-colors"
+                      title="Editar Contato"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setEditandoContato(false)}
+                        className="text-xs text-gray-400 hover:text-white transition-colors"
+                        disabled={salvandoContato}
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        onClick={handleSalvarContato}
+                        className="flex items-center gap-1 text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-2 py-1 rounded transition-colors"
+                        disabled={salvandoContato}
+                      >
+                        {salvandoContato ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Salvar
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <MapPin className="text-sky-400 shrink-0" size={18} />
+                    <MapPin className="text-sky-400 shrink-0 mt-0.5" size={18} />
                     <div>
                       <p className="text-sm text-white">{cliente.CIDADE} - {cliente.UF}</p>
                       <p className="text-xs text-gray-500">Mapeamento Geográfico</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <Phone className="text-emerald-400 shrink-0" size={18} />
+                    <Phone className="text-emerald-400 shrink-0 mt-0.5" size={18} />
                     <div className="flex-1">
-                      <p className="text-sm text-white">{cliente.TELEFONE || cliente.CELULAR_WHATSAPP_CONTATO || 'Sem telefone registrado'}</p>
-                      <p className="text-xs text-gray-500">Contato Direto</p>
+                      {editandoContato ? (
+                        <input
+                          type="text"
+                          value={novoTelefone}
+                          onChange={e => setNovoTelefone(e.target.value)}
+                          className="w-full bg-black/40 border border-emerald-500/30 rounded py-1 px-2 text-sm text-white outline-none focus:border-emerald-500"
+                          placeholder="Ex: (00) 00000-0000"
+                        />
+                      ) : (
+                        <p className="text-sm text-white">{cliente.TELEFONE || cliente.CELULAR_WHATSAPP_CONTATO || 'Sem telefone registrado'}</p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">Contato Direto</p>
                     </div>
                     {/* Botão de Integração WhatsApp */}
-                    {(cliente.TELEFONE || cliente.CELULAR_WHATSAPP_CONTATO) && (
+                    {!editandoContato && (cliente.TELEFONE || cliente.CELULAR_WHATSAPP_CONTATO) && (
                       <a 
                         href={`https://wa.me/55${(cliente.TELEFONE || cliente.CELULAR_WHATSAPP_CONTATO).replace(/\D/g, '')}`} 
                         target="_blank" 
@@ -186,10 +311,20 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
                     )}
                   </div>
                   <div className="flex items-start gap-3">
-                    <Mail className="text-amber-400 shrink-0" size={18} />
-                    <div className="break-all">
-                      <p className="text-sm text-white">{cliente.EMAIL || 'Não informado'}</p>
-                      <p className="text-xs text-gray-500">E-mail Principal</p>
+                    <Mail className="text-amber-400 shrink-0 mt-0.5" size={18} />
+                    <div className="break-all flex-1">
+                      {editandoContato ? (
+                        <input
+                          type="email"
+                          value={novoEmail}
+                          onChange={e => setNovoEmail(e.target.value)}
+                          className="w-full bg-black/40 border border-amber-500/30 rounded py-1 px-2 text-sm text-white outline-none focus:border-amber-500"
+                          placeholder="email@empresa.com"
+                        />
+                      ) : (
+                        <p className="text-sm text-white">{cliente.EMAIL || 'Não informado'}</p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">E-mail Principal</p>
                     </div>
                   </div>
                 </div>
