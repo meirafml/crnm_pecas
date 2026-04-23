@@ -86,6 +86,15 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
     setAcoesCliente(filtradas);
   }, [acoes, codigoCliente, lojaCliente]);
 
+  // Preenche dados ao entrar em modo de edição
+  useEffect(() => {
+    const cliente = data?.cliente;
+    if (editandoContato && cliente) {
+      setNovoTelefone(cliente.TELEFONE || cliente.CELULAR_WHATSAPP_CONTATO || '');
+      setNovoEmail(cliente.EMAIL || '');
+    }
+  }, [editandoContato, data]);
+
   if (loading) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -159,14 +168,7 @@ export default function Cliente360Modal({ codigoCliente, lojaCliente, onClose }:
     setSalvandoContato(false);
   };
 
-  // Preenche dados ao entrar em modo de edição
-  useEffect(() => {
-    const cliente = data?.cliente;
-    if (editandoContato && cliente) {
-      setNovoTelefone(cliente.TELEFONE || cliente.CELULAR_WHATSAPP_CONTATO || '');
-      setNovoEmail(cliente.EMAIL || '');
-    }
-  }, [editandoContato, data]);
+
 
   const { cliente, maquinas, orcamentos: orcamentosCliente } = data;
 
