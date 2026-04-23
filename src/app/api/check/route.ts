@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import xlsx from 'xlsx';
+import * as xlsx from 'xlsx';
 
 export const dynamic = 'force-dynamic';
 
