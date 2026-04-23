@@ -23,8 +23,19 @@ export default function Dashboard() {
   const [crossVendedor, setCrossVendedor] = useState('');
 
   const clientesEmRisco = clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 90);
-  const totalOrcamentos = orcamentos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0);
   const totalAtivos = clientes.filter(c => c.STATUS_BASE === 'ATIVO').length;
+
+  // Cálculos baseados no novo campo STATUS
+  const orcAbertos = orcamentos.filter(o => !o.STATUS || String(o.STATUS).toUpperCase() === 'ABERTO' || String(o.STATUS).toUpperCase() === 'EM ABERTO');
+  const orcGanhos = orcamentos.filter(o => String(o.STATUS).toUpperCase() === 'GANHO' || String(o.STATUS).toUpperCase() === 'FATURADO');
+  const orcPerdidos = orcamentos.filter(o => String(o.STATUS).toUpperCase() === 'PERDIDO' || String(o.STATUS).toUpperCase() === 'CANCELADO');
+
+  const totalAbertos = orcAbertos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0);
+  const totalGanhos = orcGanhos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0);
+  const totalPerdidos = orcPerdidos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0);
+  
+  const totalConcluidos = orcGanhos.length + orcPerdidos.length;
+  const winRate = totalConcluidos > 0 ? ((orcGanhos.length / totalConcluidos) * 100).toFixed(1) : '0.0';
 
   // Agrupar Orçamentos por Vendedor
   const rankingVendedores = Object.values(orcamentos.reduce((acc: any, curr) => {
@@ -191,11 +202,18 @@ export default function Dashboard() {
               />
               <KpiCard 
                 title="Orçamentos Abertos" 
-                value={`R$ ${totalOrcamentos.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`} 
-                subtitle={`${orcamentos.length} orçamentos pendentes`}
-                icon={<ReceiptText className="text-emerald-400" />}
-                accentColor="emerald"
+                value={`R$ ${totalAbertos.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`} 
+                subtitle={`${orcAbertos.length} orçamentos pendentes`}
+                icon={<ReceiptText className="text-blue-400" />}
+                accentColor="sky"
                 href="/orcamentos"
+              />
+              <KpiCard 
+                title="Taxa de Conversão (Win Rate)" 
+                value={`${winRate}%`} 
+                subtitle={`${orcGanhos.length} ganhos • ${orcPerdidos.length} perdidos`}
+                icon={<TrendingUp className="text-emerald-400" />}
+                accentColor="emerald"
               />
               <KpiCard 
                 title="Ações Pendentes" 
@@ -404,7 +422,7 @@ export default function Dashboard() {
       </div>
 
         {/* GRÁFICOS VISUAIS (Recharts) */}
-        <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
+        <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
           {/* Gráfico 1: Funil de Orçamentos */}
           <div className="glass-panel p-6">
              <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-6">
@@ -437,6 +455,43 @@ export default function Dashboard() {
                </ResponsiveContainer>
              </div>
           </div>
+
+          {/* Gráfico 1.5: Status (Novo) */}
+           <div className="glass-panel p-6">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-6">
+                 <TrendingUp size={18} className="text-emerald-400" />
+                 Conversão e Performance
+              </h2>
+              <div className="flex flex-col justify-center gap-6 h-[250px] w-full">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                   <div>
+                      <p className="text-sm text-gray-400 mb-1">Total Faturado (Ganhos)</p>
+                      <h3 className="text-2xl font-bold text-emerald-400">R$ {totalGanhos.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</h3>
+                   </div>
+                   <div className="p-3 bg-emerald-500/10 rounded-full">
+                      <TrendingUp size={24} className="text-emerald-400" />
+                   </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                   <div>
+                      <p className="text-sm text-gray-400 mb-1">Total Perdido</p>
+                      <h3 className="text-2xl font-bold text-red-400">R$ {totalPerdidos.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</h3>
+                   </div>
+                   <div className="p-3 bg-red-500/10 rounded-full">
+                      <TrendingUp size={24} className="text-red-400 rotate-180" />
+                   </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                   <div>
+                      <p className="text-sm text-gray-400 mb-1">Ticket Médio (Ganhos)</p>
+                      <h3 className="text-2xl font-bold text-sky-400">R$ {orcGanhos.length > 0 ? (totalGanhos / orcGanhos.length).toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0}) : '0'}</h3>
+                   </div>
+                   <div className="p-3 bg-sky-500/10 rounded-full">
+                      <ReceiptText size={24} className="text-sky-400" />
+                   </div>
+                </div>
+              </div>
+           </div>
 
           {/* Gráfico 2: Análise de Churn */}
           <div className="glass-panel p-6">

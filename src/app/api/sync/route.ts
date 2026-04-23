@@ -97,6 +97,11 @@ function processOrcamento(o: any): any {
   r.ORC_VALOR_UNITARIO = parseFinanceiro(r.ORC_VALOR_UNITARIO);
   r.ORC_VALOR_TOTAL = parseFinanceiro(r.ORC_VALOR_TOTAL);
   r.ORC_CUSTO_PRODUTO = parseFinanceiro(r.ORC_CUSTO_PRODUTO);
+  
+  // Mapeamento da nova coluna de STATUS do orcamento (Trata variações de nome do cabeçalho)
+  const statusStr = String(o.STATUS || o.Status || o.status || o.STATUS_ORCAMENTO || o.Situacao || 'ABERTO').toUpperCase().trim();
+  r.STATUS = statusStr;
+
   return r;
 }
 

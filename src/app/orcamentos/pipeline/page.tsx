@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Flame, Clock, Snowflake, TrendingUp, Zap } from 'lucide-react';
+import { Loader2, Flame, Clock, Snowflake, TrendingUp, Zap, ReceiptText } from 'lucide-react';
 import Link from 'next/link';
 import CriarAcaoModal from '@/components/CriarAcaoModal';
 import { useData } from '@/contexts/DataContext';
@@ -34,7 +34,15 @@ export default function PipelineOrcamentos() {
     congelados: { titulo: 'Congelados (>30 Dias)', cor: 'text-red-400', border: 'border-red-500/30', bg: 'bg-red-500/10', icone: <Snowflake size={16} />, items: [] as any[], total: 0 },
   };
 
-  orcamentos.forEach(o => {
+  const orcAbertos = orcamentos.filter(o => !o.STATUS || String(o.STATUS).toUpperCase() === 'ABERTO' || String(o.STATUS).toUpperCase() === 'EM ABERTO');
+  const orcGanhos = orcamentos.filter(o => String(o.STATUS).toUpperCase() === 'GANHO' || String(o.STATUS).toUpperCase() === 'FATURADO');
+  
+  const winRate = (orcGanhos.length + orcamentos.filter(o => String(o.STATUS).toUpperCase() === 'PERDIDO').length) > 0 
+    ? ((orcGanhos.length / (orcGanhos.length + orcamentos.filter(o => String(o.STATUS).toUpperCase() === 'PERDIDO').length)) * 100).toFixed(1) 
+    : '0.0';
+  const totalFaturado = orcGanhos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0);
+
+  orcAbertos.forEach(o => {
     if (!o.ORC_DATA_EMISSAO_ORCAMENTO) return;
     
     const dataEmissao = new Date(o.ORC_DATA_EMISSAO_ORCAMENTO);
@@ -76,6 +84,31 @@ export default function PipelineOrcamentos() {
           </Link>
         </div>
       </header>
+
+      {/* KPIs Rápidos de Status */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2 shrink-0">
+         <div className="glass-panel p-4 border border-emerald-500/20 bg-emerald-500/5 flex items-center justify-between">
+            <div>
+               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Win Rate</p>
+               <h3 className="text-2xl font-bold text-emerald-400">{winRate}%</h3>
+            </div>
+            <TrendingUp className="text-emerald-500/50" size={32} />
+         </div>
+         <div className="glass-panel p-4 border border-sky-500/20 bg-sky-500/5 flex items-center justify-between">
+            <div>
+               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Pipeline Ativo</p>
+               <h3 className="text-2xl font-bold text-sky-400">R$ {orcAbertos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0).toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</h3>
+            </div>
+            <ReceiptText className="text-sky-500/50" size={32} />
+         </div>
+         <div className="glass-panel p-4 border border-amber-500/20 bg-amber-500/5 flex items-center justify-between">
+            <div>
+               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Total Faturado</p>
+               <h3 className="text-2xl font-bold text-amber-400">R$ {totalFaturado.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</h3>
+            </div>
+            <Zap className="text-amber-500/50" size={32} />
+         </div>
+      </div>
 
       {/* KANBAN BOARD */}
       <div className="flex gap-6 overflow-x-auto pb-4 pt-1 flex-1 min-h-[400px] pr-8 after:content-[''] after:w-4 after:shrink-0">
