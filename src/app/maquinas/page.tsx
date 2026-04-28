@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useDeferredValue } from 'react';
 import { Loader2, Search, MapPin, X } from 'lucide-react';
 import Cliente360Modal from '@/components/Cliente360Modal';
 
@@ -25,6 +25,9 @@ function fixEncoding(str: any) {
 export default function MaquinasPage() {
   const { maquinas, loading } = useData();
   const [busca, setBusca] = useState('');
+  const deferredBusca = useDeferredValue(busca);
+  const [pagina, setPagina] = useState(1);
+  const ITENS_POR_PAGINA = 50;
   
   // Advanced Filters
   const [categoriaFiltro, setCategoriaFiltro] = useState('');
@@ -33,36 +36,49 @@ export default function MaquinasPage() {
   const [somenteRecentes, setSomenteRecentes] = useState(false);
   const [cliente360, setCliente360] = useState<{ codigo: string, loja: string } | null>(null);
 
-  const filtrados = maquinas.filter(m => {
-    const term = busca.toLowerCase();
-    const strFabricante = String(m.FABRICANTE || m.marca || '').toLowerCase();
-    const passaBusca = (m.CHASSI?.toLowerCase() || '').includes(term) || 
-                       (m.MODELO?.toLowerCase() || '').includes(term) || 
-                       (m.NOME_CLIENTE?.toLowerCase() || '').includes(term) ||
-                       strFabricante.includes(term);
-                       
-    const passaCategoria = categoriaFiltro ? String(m.CATEGORIA || '').trim() === categoriaFiltro.trim() : true;
-    const passaFabricante = fabricanteFiltro ? String(m.FABRICANTE || m.marca || '').trim() === fabricanteFiltro.trim() : true;
-    const passaEstado = estadoFiltro ? String(m.ESTADO || '').trim() === estadoFiltro.trim() : true;
+  useEffect(() => {
+    setPagina(1);
+  }, [deferredBusca, categoriaFiltro, fabricanteFiltro, estadoFiltro, somenteRecentes]);
 
-    let passaRecente = true;
-    if (somenteRecentes && m.EMISSAO) {
-      const dt = new Date(m.EMISSAO.toString().includes('Date') ? parseInt(m.EMISSAO.match(/\d+/)![0]) : m.EMISSAO);
-      if (!isNaN(dt.getTime())) {
-        const diasAge = Math.floor((new Date().getTime() - dt.getTime()) / (1000 * 60 * 60 * 24));
-        passaRecente = diasAge <= 90;
-      } else {
+  const filtrados = useMemo(() => {
+    return maquinas.filter(m => {
+      const term = deferredBusca.toLowerCase();
+      const strFabricante = String(m.FABRICANTE || m.marca || '').toLowerCase();
+      const passaBusca = (m.CHASSI?.toLowerCase() || '').includes(term) || 
+                         (m.MODELO?.toLowerCase() || '').includes(term) || 
+                         (m.NOME_CLIENTE?.toLowerCase() || '').includes(term) ||
+                         strFabricante.includes(term);
+                         
+      const passaCategoria = categoriaFiltro ? String(m.CATEGORIA || '').trim() === categoriaFiltro.trim() : true;
+      const passaFabricante = fabricanteFiltro ? String(m.FABRICANTE || m.marca || '').trim() === fabricanteFiltro.trim() : true;
+      const passaEstado = estadoFiltro ? String(m.ESTADO || '').trim() === estadoFiltro.trim() : true;
+
+      let passaRecente = true;
+      if (somenteRecentes && m.EMISSAO) {
+        const dt = new Date(m.EMISSAO.toString().includes('Date') ? parseInt(m.EMISSAO.match(/\d+/)![0]) : m.EMISSAO);
+        if (!isNaN(dt.getTime())) {
+          const diasAge = Math.floor((new Date().getTime() - dt.getTime()) / (1000 * 60 * 60 * 24));
+          passaRecente = diasAge <= 90;
+        } else {
+          passaRecente = false;
+        }
+      } else if (somenteRecentes && !m.EMISSAO) {
         passaRecente = false;
       }
-    } else if (somenteRecentes && !m.EMISSAO) {
-      passaRecente = false;
-    }
 
-    return passaBusca && passaCategoria && passaFabricante && passaEstado && passaRecente;
-  });
+      return passaBusca && passaCategoria && passaFabricante && passaEstado && passaRecente;
+    });
+  }, [maquinas, deferredBusca, categoriaFiltro, fabricanteFiltro, estadoFiltro, somenteRecentes]);
 
-  const categorias = Array.from(new Set(maquinas.map(m => String(m.CATEGORIA || '').trim()).filter(Boolean))).sort();
-  const fabricantes = Array.from(new Set(maquinas.map(m => String(m.FABRICANTE || m.marca || '').trim()).filter(Boolean))).sort();
+  const categorias = useMemo(() => Array.from(new Set(maquinas.map(m => String(m.CATEGORIA || '').trim()).filter(Boolean))).sort(), [maquinas]);
+  const fabricantes = useMemo(() => Array.from(new Set(maquinas.map(m => String(m.FABRICANTE || m.marca || '').trim()).filter(Boolean))).sort(), [maquinas]);
+
+  const paginados = useMemo(() => {
+    const start = (pagina - 1) * ITENS_POR_PAGINA;
+    return filtrados.slice(start, start + ITENS_POR_PAGINA);
+  }, [filtrados, pagina]);
+  
+  const totalPaginas = Math.ceil(filtrados.length / ITENS_POR_PAGINA);
 
   return (
     <div className="flex-1 overflow-y-auto animate-in fade-in duration-500">
@@ -149,7 +165,7 @@ export default function MaquinasPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {filtrados.map((m) => (
+                {paginados.map((m) => (
                   <tr key={m.id} className="hover:bg-white/[0.02] transition-colors cursor-pointer group" onClick={() => setCliente360({ codigo: m.COD_CLIENTE || m.CODIGO_CLIENTE, loja: m.LOJA_CLIENTE })}>
                     <td className="px-6 py-4">
                       <div className="font-medium text-white group-hover:text-amber-300 transition-colors">{fixEncoding(m.MODELO)}</div>
@@ -195,6 +211,36 @@ export default function MaquinasPage() {
               </tbody>
             </table>
           </div>
+          
+          {/* Controles de Paginação */}
+          {totalPaginas > 1 && (
+            <div className="p-4 border-t border-white/5 flex items-center justify-between bg-black/20 text-sm">
+              <span className="text-gray-400">
+                Mostrando {(pagina - 1) * ITENS_POR_PAGINA + 1} até {Math.min(pagina * ITENS_POR_PAGINA, filtrados.length)} de {filtrados.length} resultados
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPagina(p => Math.max(1, p - 1))}
+                  disabled={pagina === 1}
+                  className="px-3 py-1 rounded-md bg-white/5 text-gray-300 hover:bg-white/10 disabled:opacity-50 transition-colors"
+                >
+                  Anterior
+                </button>
+                <div className="flex items-center gap-1">
+                  <span className="w-8 text-center bg-transparent border-none text-white">{pagina}</span>
+                  <span className="text-gray-500">/</span>
+                  <span className="text-gray-500">{totalPaginas}</span>
+                </div>
+                <button
+                  onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                  disabled={pagina === totalPaginas}
+                  className="px-3 py-1 rounded-md bg-white/5 text-gray-300 hover:bg-white/10 disabled:opacity-50 transition-colors"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

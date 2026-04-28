@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { AlertCircle, ChevronRight, Clock, MapPin, ReceiptText, Tractor, TrendingUp, Users, MessageCircle, X, Loader2, Database, Zap } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, Cell, LabelList } from 'recharts';
 import Link from 'next/link';
@@ -22,23 +22,26 @@ export default function Dashboard() {
   const [crossModelo, setCrossModelo] = useState('');
   const [crossVendedor, setCrossVendedor] = useState('');
 
-  const clientesEmRisco = clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 90);
-  const totalAtivos = clientes.filter(c => c.STATUS_BASE === 'ATIVO').length;
+  const clientesEmRisco = useMemo(() => clientes.filter(c => (c.DIAS_SEM_COMPRA || 0) > 90), [clientes]);
+  const totalAtivos = useMemo(() => clientes.filter(c => c.STATUS_BASE === 'ATIVO').length, [clientes]);
 
   // Cálculos baseados no novo campo STATUS
-  const orcAbertos = orcamentos.filter(o => !o.STATUS || String(o.STATUS).toUpperCase() === 'ABERTO' || String(o.STATUS).toUpperCase() === 'EM ABERTO');
-  const orcGanhos = orcamentos.filter(o => String(o.STATUS).toUpperCase() === 'GANHO' || String(o.STATUS).toUpperCase() === 'FATURADO');
-  const orcPerdidos = orcamentos.filter(o => String(o.STATUS).toUpperCase() === 'PERDIDO' || String(o.STATUS).toUpperCase() === 'CANCELADO');
+  const orcAbertos = useMemo(() => orcamentos.filter(o => !o.STATUS || String(o.STATUS).toUpperCase() === 'ABERTO' || String(o.STATUS).toUpperCase() === 'EM ABERTO'), [orcamentos]);
+  const orcGanhos = useMemo(() => orcamentos.filter(o => String(o.STATUS).toUpperCase() === 'GANHO' || String(o.STATUS).toUpperCase() === 'FATURADO'), [orcamentos]);
+  const orcPerdidos = useMemo(() => orcamentos.filter(o => String(o.STATUS).toUpperCase() === 'PERDIDO' || String(o.STATUS).toUpperCase() === 'CANCELADO'), [orcamentos]);
 
-  const totalAbertos = orcAbertos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0);
-  const totalGanhos = orcGanhos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0);
-  const totalPerdidos = orcPerdidos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0);
+  const totalAbertos = useMemo(() => orcAbertos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0), [orcAbertos]);
+  const totalGanhos = useMemo(() => orcGanhos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0), [orcGanhos]);
+  const totalPerdidos = useMemo(() => orcPerdidos.reduce((acc, curr) => acc + (curr.ORC_VALOR_TOTAL || 0), 0), [orcPerdidos]);
   
-  const totalConcluidos = orcGanhos.length + orcPerdidos.length;
-  const winRate = totalConcluidos > 0 ? ((orcGanhos.length / totalConcluidos) * 100).toFixed(1) : '0.0';
+  const totalConcluidos = totalGanhos + totalPerdidos; // Simplified since we already calculate the lengths below if needed, wait, the original code had: totalConcluidos = orcGanhos.length + orcPerdidos.length;
+  const winRate = useMemo(() => {
+    const total = orcGanhos.length + orcPerdidos.length;
+    return total > 0 ? ((orcGanhos.length / total) * 100).toFixed(1) : '0.0';
+  }, [orcGanhos.length, orcPerdidos.length]);
 
   // Agrupar Orçamentos por Vendedor
-  const rankingVendedores = Object.values(orcamentos.reduce((acc: any, curr) => {
+  const rankingVendedores = useMemo(() => Object.values(orcamentos.reduce((acc: any, curr) => {
     const vendedor = (curr.ORC_NOME_VENDEDOR || 'NÃO IDENTIFICADO').trim();
     if (!acc[vendedor]) {
       acc[vendedor] = { nome: vendedor, total: 0, quantidade: 0, orcamentos: [] as any[] };
@@ -48,40 +51,44 @@ export default function Dashboard() {
     acc[vendedor].orcamentos.push(curr);
     return acc;
   }, {} as Record<string, any>))
-  .sort((a: any, b: any) => b.total - a.total).slice(0, 8) as any[];
+  .sort((a: any, b: any) => b.total - a.total).slice(0, 8) as any[], [orcamentos]);
 
   // Gráfico: Funil Orçamentos (Emissão vs Hoje)
-  const funilOrcamentosRaw = [
-    { name: 'Recentes (0-7d)', maxD: 7, valor: 0, color: '#34d399' }, 
-    { name: 'Mornos (8-15d)', maxD: 15, valor: 0, color: '#fbbf24' },        
-    { name: 'Esfriando (16-30d)', maxD: 30, valor: 0, color: '#fb923c' },    
-    { name: 'Congelados (>30d)', maxD: 9999, valor: 0, color: '#ef4444' }, 
-  ];
-  orcamentos.forEach(o => {
-    if(!o.ORC_DATA_EMISSAO_ORCAMENTO) return;
-    const dias = Math.floor((new Date().getTime() - new Date(o.ORC_DATA_EMISSAO_ORCAMENTO).getTime()) / (1000 * 60 * 60 * 24));
-    const bucket = funilOrcamentosRaw.find(b => dias <= b.maxD) || funilOrcamentosRaw[3];
-    bucket.valor += (o.ORC_VALOR_TOTAL || 0);
-  });
-  const funilOrcamentos = funilOrcamentosRaw;
+  const funilOrcamentos = useMemo(() => {
+    const funilOrcamentosRaw = [
+      { name: 'Recentes (0-7d)', maxD: 7, valor: 0, color: '#34d399' }, 
+      { name: 'Mornos (8-15d)', maxD: 15, valor: 0, color: '#fbbf24' },        
+      { name: 'Esfriando (16-30d)', maxD: 30, valor: 0, color: '#fb923c' },    
+      { name: 'Congelados (>30d)', maxD: 9999, valor: 0, color: '#ef4444' }, 
+    ];
+    orcamentos.forEach(o => {
+      if(!o.ORC_DATA_EMISSAO_ORCAMENTO) return;
+      const dias = Math.floor((new Date().getTime() - new Date(o.ORC_DATA_EMISSAO_ORCAMENTO).getTime()) / (1000 * 60 * 60 * 24));
+      const bucket = funilOrcamentosRaw.find(b => dias <= b.maxD) || funilOrcamentosRaw[3];
+      bucket.valor += (o.ORC_VALOR_TOTAL || 0);
+    });
+    return funilOrcamentosRaw;
+  }, [orcamentos]);
 
   // Gráfico: Churn Data (Dias inativos vs Qtde Clientes)
-  const churnDataRaw = [
-    { name: 'Ativos', min: 0, max: 90, quantidade: 0 },
-    { name: '90-180d', min: 91, max: 180, quantidade: 0 },
-    { name: '6m-1ano', min: 181, max: 365, quantidade: 0 },
-    { name: '1-2 anos', min: 366, max: 730, quantidade: 0 },
-    { name: '> 2 anos', min: 731, max: 99999, quantidade: 0 },
-  ];
-  clientes.forEach(c => {
-    if(c.DIAS_SEM_COMPRA == null) return;
-    const bucket = churnDataRaw.find(b => c.DIAS_SEM_COMPRA >= b.min && c.DIAS_SEM_COMPRA <= b.max) || churnDataRaw[4];
-    bucket.quantidade += 1;
-  });
-  const churnData = churnDataRaw;
+  const churnData = useMemo(() => {
+    const churnDataRaw = [
+      { name: 'Ativos', min: 0, max: 90, quantidade: 0 },
+      { name: '90-180d', min: 91, max: 180, quantidade: 0 },
+      { name: '6m-1ano', min: 181, max: 365, quantidade: 0 },
+      { name: '1-2 anos', min: 366, max: 730, quantidade: 0 },
+      { name: '> 2 anos', min: 731, max: 99999, quantidade: 0 },
+    ];
+    clientes.forEach(c => {
+      if(c.DIAS_SEM_COMPRA == null) return;
+      const bucket = churnDataRaw.find(b => c.DIAS_SEM_COMPRA >= b.min && c.DIAS_SEM_COMPRA <= b.max) || churnDataRaw[4];
+      bucket.quantidade += 1;
+    });
+    return churnDataRaw;
+  }, [clientes]);
 
   // LÓGICA DE CROSS-SELL (Máquinas Faturadas nos últimos 90 dias)
-  const maquinasRecentesTotal = maquinas.map(m => {
+  const maquinasRecentesTotal = useMemo(() => maquinas.map(m => {
     let diasAge = 9999;
     if (m.EMISSAO) {
       // Tenta fazer o parse da data EMISSAO
@@ -91,22 +98,22 @@ export default function Dashboard() {
       }
     }
     return { ...m, diasAposFaturamento: diasAge };
-  }).filter(m => m.diasAposFaturamento <= 90).sort((a,b) => a.diasAposFaturamento - b.diasAposFaturamento);
+  }).filter(m => m.diasAposFaturamento <= 90).sort((a,b) => a.diasAposFaturamento - b.diasAposFaturamento), [maquinas]);
 
   // Opções para os combos
-  const crossFiliasDisponiveis = Array.from(new Set(maquinasRecentesTotal.map(m => String(m.FILIAL || '')).filter(Boolean)));
-  const crossFabricantesDisponiveis = Array.from(new Set(maquinasRecentesTotal.map(m => String(m.FABRICANTE || m.marca || '').trim()).filter(Boolean)));
-  const crossModelosDisponiveis = Array.from(new Set(maquinasRecentesTotal.map(m => String(m.MODELO || '').trim()).filter(Boolean)));
-  const crossVendedoresDisponiveis = Array.from(new Set(maquinasRecentesTotal.map(m => String(m.NOME_VENDEDOR || '').trim()).filter(Boolean))).sort();
+  const crossFiliasDisponiveis = useMemo(() => Array.from(new Set(maquinasRecentesTotal.map(m => String(m.FILIAL || '')).filter(Boolean))), [maquinasRecentesTotal]);
+  const crossFabricantesDisponiveis = useMemo(() => Array.from(new Set(maquinasRecentesTotal.map(m => String(m.FABRICANTE || m.marca || '').trim()).filter(Boolean))), [maquinasRecentesTotal]);
+  const crossModelosDisponiveis = useMemo(() => Array.from(new Set(maquinasRecentesTotal.map(m => String(m.MODELO || '').trim()).filter(Boolean))), [maquinasRecentesTotal]);
+  const crossVendedoresDisponiveis = useMemo(() => Array.from(new Set(maquinasRecentesTotal.map(m => String(m.NOME_VENDEDOR || '').trim()).filter(Boolean))).sort(), [maquinasRecentesTotal]);
 
   // Aplicar Filtros ao Cross-Sell
-  const maquinasRecentesFiltradas = maquinasRecentesTotal.filter(m => {
+  const maquinasRecentesFiltradas = useMemo(() => maquinasRecentesTotal.filter(m => {
     if (crossFilial && String(m.FILIAL) !== crossFilial) return false;
     if (crossFabricante && String(m.FABRICANTE || m.marca || '').trim() !== crossFabricante) return false;
     if (crossModelo && String(m.MODELO || '').trim() !== crossModelo) return false;
     if (crossVendedor && String(m.NOME_VENDEDOR || '').trim() !== crossVendedor) return false;
     return true;
-  });
+  }), [maquinasRecentesTotal, crossFilial, crossFabricante, crossModelo, crossVendedor]);
 
   // Estado vazio
   const semDados = clientes.length === 0 && orcamentos.length === 0 && maquinas.length === 0;
