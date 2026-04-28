@@ -53,21 +53,41 @@ export async function GET(request: Request) {
     let data = null;
 
     async function fetchAll(tableName: string, columns: string, orderCol: string) {
-      let allData: any[] = [];
-      let from = 0;
+      // 1. Descobrir o total de registros primeiro
+      const { count, error: countError } = await supabase
+        .from(tableName)
+        .select('*', { count: 'exact', head: true });
+        
+      if (countError) throw countError;
+      
+      const total = count || 0;
       const step = 999;
-      let hasMore = true;
-      while (hasMore) {
-        // Usa `id` como ordenação secundária para garantir estabilidade na paginação e evitar linhas duplicadas/puladas.
-        const { data, error } = await supabase.from(tableName).select(columns).order(orderCol, { ascending: false, nullsFirst: false }).order('id', { ascending: true }).range(from, from + step);
-        if (error) throw error;
-        if (data && data.length > 0) {
-          allData = allData.concat(data);
-          from += step + 1;
-        } else {
-          hasMore = false;
+      const numRequests = Math.ceil(total / step);
+      const promises = [];
+
+      // 2. Disparar todas as requisições ao mesmo tempo (Paralelo)
+      for (let i = 0; i < numRequests; i++) {
+        const from = i * step;
+        promises.push(
+          supabase
+            .from(tableName)
+            .select(columns)
+            .order(orderCol, { ascending: false, nullsFirst: false })
+            .order('id', { ascending: true })
+            .range(from, from + step - 1) // O range final é inclusivo
+        );
+      }
+
+      const results = await Promise.all(promises);
+      let allData: any[] = [];
+      
+      for (const result of results) {
+        if (result.error) throw result.error;
+        if (result.data) {
+          allData = allData.concat(result.data);
         }
       }
+      
       return allData;
     }
 
